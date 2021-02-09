@@ -16,11 +16,12 @@ class VField {
 
 class SimulationVField: public VField {
     public:
-        explicit SimulationVField(Delaunay_triangulation *tr);
+        explicit SimulationVField(Delaunay_triangulation *tr_Gamma, Delaunay_triangulation *tr_beta_phi);
         Vector3d vf(const Vector3d& point) const override;
 
     private:
-        SimulationInterpolater interp_;
+        SimulationInterpolater interp_Gamma_;
+        SimulationInterpolater interp_beta_phi_;
 };
 
 #endif //MHD_TRANSFER_VFIELD_H

@@ -1,6 +1,7 @@
 #include <utils.h>
 #include "NField.h"
 #include "MyExceptions.h"
+//#include "symphony.h"
 
 
 NField::NField (bool in_plasma_frame, Geometry* geometry) :
@@ -103,8 +104,10 @@ double PowerLawNField::k_i(Vector3d &b, Vector3d &n_los, double nu, double n) co
     double nu_min_ = nu_min(gamma_min_, b, n_los);
     if(nu > nu_min_) {
         return k_0(b, n_los, nu, n) * pow(nu_b(b, n_los)/nu, s/2.) * factor_ki;
+//        return k_0(b, n_los, nu, n*(s-1)*pow(gamma_min_, s-1)) * pow(nu_b(b, n_los)/nu, s/2.) * factor_ki;
     } else {
         return k_0(b, n_los, nu_min_, n) * pow(nu_b(b, n_los)/nu_min_, s/2.) * factor_ki * pow(nu/nu_min_, -5./3.);
+//        return k_0(b, n_los, nu_min_, n*(s-1)*pow(gamma_min_, s-1)) * pow(nu_b(b, n_los)/nu_min_, s/2.) * factor_ki * pow(nu/nu_min_, -5./3.);
     }
 }
 
@@ -202,8 +205,10 @@ double PowerLawNField::eta_i(Vector3d &b, Vector3d &n_los, double nu, double n) 
     double nu_min_ = nu_min(gamma_min_, b, n_los);
     if(nu > nu_min_) {
         return eta_0(b, n_los, n) * pow(nu_b(b, n_los)/nu, (s-1.)/2.) * factor_etai;
+//        return eta_0(b, n_los, n*(s-1)*pow(gamma_min_, s-1)) * pow(nu_b(b, n_los)/nu, (s-1.)/2.) * factor_etai;
     } else {
         return eta_0(b, n_los, n) * pow(nu_b(b, n_los)/nu_min_, (s-1.)/2.) * factor_etai * pow(nu/nu_min_, 1./3.);
+//        return eta_0(b, n_los, n*(s-1)*pow(gamma_min_, s-1)) * pow(nu_b(b, n_los)/nu_min_, (s-1.)/2.) * factor_etai * pow(nu/nu_min_, 1./3.);
     }
 }
 
@@ -312,10 +317,11 @@ double ThermalNField::eta_v(Vector3d &b, Vector3d &n_los, double nu, double n) c
 
 
 SimulationNField::SimulationNField(Delaunay_triangulation *tr, bool in_plasma_frame, double s, double gamma_min,
-                                   bool changing_s) :
+                                   bool changing_s, double scale_factor) :
         PowerLawNField(in_plasma_frame, s, gamma_min, nullptr, "pairs", changing_s, 0.0),
-        interp_(tr) {}
+        interp_(tr),
+        scale_factor_(scale_factor) {}
 
 double SimulationNField::_nf(const Vector3d &point) const {
-    return interp_.interpolated_value(point);
+    return scale_factor_*interp_.interpolated_value(point);
 };

@@ -173,7 +173,7 @@ if __name__ == '__main__':
     freq_ghz_low = 8.1
     import os
     cwd = os.getcwd()
-    os.chdir(os.path.join(cwd, '../cmake-build-release'))
+    os.chdir(os.path.join(cwd, 'Release'))
     i_image_high = np.loadtxt('jet_image_i_{}.txt'.format(freq_ghz_high))
     i_image_low = np.loadtxt('jet_image_i_{}.txt'.format(freq_ghz_low))
 
@@ -196,7 +196,7 @@ if __name__ == '__main__':
     # tau_fr_image_low = np.loadtxt('jet_image_taufr_{}.txt'.format(freq_ghz_low))
     # tau_fr_image_high = np.loadtxt('jet_image_taufr_{}.txt'.format(freq_ghz_high))
     # rm_image = 0.5*tau_fr_image_low/(0.037**2)
-    # l_image = np.loadtxt('jet_image_l_{}.txt'.format(freq_ghz_high))
+    l_image = np.loadtxt('jet_image_l_{}.txt'.format(freq_ghz_high))
     # p_image = np.sqrt(q_image**2+u_image**2)
     # fpol_image = p_image/i_image_high
     alpha_image = np.log(i_image_low/i_image_high)/np.log(freq_ghz_low/freq_ghz_high)
@@ -225,42 +225,46 @@ if __name__ == '__main__':
     # axes_left.set_ylabel("Across the jet - Along the jet")
     # plt.show()
 
-    # Just plotting picture
-    colors_mask = i_image_high < i_image_high.max()*0.00001
-    # colors_mask = i_image_sim < i_image_sim.max()*0.00001
-    # fig = plot(contours=i_image_high, colors=fpol_image, vectors=chi_image,
-    #      vectors_values=None, colors_mask=colors_mask, min_rel_level=0.05,
-    #      vinc=10, vectors_mask=colors_mask, vector_color="k", contour_color="k", cmap="jet", color_clim=[0, 0.75],
-    #      colorbar_label='Frac. LP', vector_enlarge_factor=8)#, outdir="/home/ilya", outfile="oldMHDsimulations_LinPol_NUpixel.png")
-    # fig.savefig("LinPol_Icontours.png", dpi=300, bbox_inches="tight")
-    # import sys
-    # sys.exit(0)
-
-    # fig = plot(contours=p_image, colors=p_image, vectors=chi_image,
-    #            vectors_values=None, colors_mask=colors_mask, min_rel_level=0.05,
-    #            vinc=10, vectors_mask=colors_mask, contour_color="k", vector_color="k", cmap="gist_rainbow",
-    #            vector_enlarge_factor=8, colorbar_label="P")#, outdir="/home/ilya", outfile="oldMHDsimulations_LinPol_NUpixel.png")
-    # fig.savefig("LinPol_Pcontours.png", dpi=300, bbox_inches="tight")
+    colors_mask = i_image_high < i_image_high.max()*0.0000001
 
     fig = plot(contours=i_image_high, colors=np.log(i_image_high), cmap="jet", colors_mask=colors_mask, min_rel_level=0.05,
-         colorbar_label=r'$\log{I}$')
+               colorbar_label=r'$\log{I}$')
     fig.savefig("I.png", dpi=300, bbox_inches="tight")
 
     fig = plot(contours=i_image_high, colors=np.log10(tau_image), cmap="jet", colors_mask=colors_mask, min_rel_level=0.05,
                colorbar_label=r'$\lg{\tau}$')
     fig.savefig("tau_15GHz.png", dpi=300, bbox_inches="tight")
 
-    # fig = plot(contours=i_image_high, colors=p_image, cmap="jet", colors_mask=colors_mask, min_rel_level=0.05,
-    #            colorbar_label=r'$P$')
-    # fig.savefig("P.png", dpi=300, bbox_inches="tight")
-
-    # fig = plot(contours=p_image, colors=fpol_image, colors_mask=colors_mask, min_rel_level=0.05, color_clim=[0, 0.75],
-    #      colorbar_label=r'$FPOL$', cmap="jet")
-    # fig.savefig("P_FPOL.png", dpi=300, bbox_inches="tight")
-
     fig = plot(contours=i_image_high, colors=alpha_image, colors_mask=colors_mask, min_rel_level=0.05,
-         colorbar_label=r'$\alpha$', color_clim=[-0.8, 0.2])
+               colorbar_label=r'$\alpha$', color_clim=[-0.8, 0.2])
     fig.savefig("alpha_Icontours.png", dpi=300, bbox_inches="tight")
+
+    import sys
+    sys.exit(0)
+
+    # Just plotting picture
+    # colors_mask = i_image_sim < i_image_sim.max()*0.00001
+    fig = plot(contours=i_image_high, colors=fpol_image, vectors=chi_image,
+         vectors_values=None, colors_mask=colors_mask, min_rel_level=0.05,
+         vinc=10, vectors_mask=colors_mask, vector_color="k", contour_color="k", cmap="jet", color_clim=[0, 0.75],
+         colorbar_label='Frac. LP', vector_enlarge_factor=8)#, outdir="/home/ilya", outfile="oldMHDsimulations_LinPol_NUpixel.png")
+    fig.savefig("LinPol_Icontours.png", dpi=300, bbox_inches="tight")
+
+    fig = plot(contours=p_image, colors=p_image, vectors=chi_image,
+               vectors_values=None, colors_mask=colors_mask, min_rel_level=0.05,
+               vinc=10, vectors_mask=colors_mask, contour_color="k", vector_color="k", cmap="gist_rainbow",
+               vector_enlarge_factor=8, colorbar_label="P")#, outdir="/home/ilya", outfile="oldMHDsimulations_LinPol_NUpixel.png")
+    fig.savefig("LinPol_Pcontours.png", dpi=300, bbox_inches="tight")
+
+    fig = plot(contours=i_image_high, colors=p_image, cmap="jet", colors_mask=colors_mask, min_rel_level=0.05,
+               colorbar_label=r'$P$')
+    fig.savefig("P.png", dpi=300, bbox_inches="tight")
+
+    fig = plot(contours=p_image, colors=fpol_image, colors_mask=colors_mask, min_rel_level=0.05, color_clim=[0, 0.75],
+         colorbar_label=r'$FPOL$', cmap="jet")
+    fig.savefig("P_FPOL.png", dpi=300, bbox_inches="tight")
+
+
 
     # fig = plot(contours=i_image_high, colors=tau_fr_image_high, colors_mask=colors_mask, min_rel_level=0.05,
     #      colorbar_label=r'$\tau_{\rm FR}$')#, outdir="/home/ilya", outfile="oldMHDsimulations_LinPol_NUpixel.png")

@@ -1,5 +1,6 @@
 #include <tuple>
 #include "Jet.h"
+#include "MyExceptions.h"
 
 
 Jet::Jet(BaseGeometry *newgeo, VField *newvfield, VectorBField* newbField, NField* newnField) {
@@ -190,7 +191,13 @@ std::list<Intersection> Jet::hit(Ray &ray) {
 }
 
 Vector3d Jet::getV(const Vector3d &point) {
-    return vfield_->vf(point);
+    auto v = vfield_->vf(point);
+    if(v.norm() > c) {
+        std::cout << "Speed > c!!!";
+        throw PhysicalException("Speed");
+    }
+    return v;
+//    return vfield_->vf(point);
 }
 
 const Vector3d Jet::getBeta(const Vector3d &point) {

@@ -50,7 +50,7 @@ class NField {
         //virtual double eta_v(double b, Vector3d &n_los, double nu, double n) const = 0;
 
     protected:
-        explicit NField(bool in_plasma_frame, Geometry* geometry = nullptr));
+        explicit NField(bool in_plasma_frame, Geometry* geometry = nullptr);
         bool in_plasma_frame_;
         Geometry* geometry_;
 };
@@ -135,10 +135,11 @@ class ThermalNField : public NField {
 class SimulationNField: public PowerLawNField {
     public:
         SimulationNField(Delaunay_triangulation *tr, bool in_plasma_frame, double s, double gamma_min,
-                         bool changing_s="false");
+                         bool changing_s=false, double scale_factor=1.0);
         double _nf(const Vector3d &point) const override;
 
     private:
+        double scale_factor_;
         SimulationInterpolater interp_;
 };
 

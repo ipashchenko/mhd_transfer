@@ -205,6 +205,6 @@ double mas_to_pc(double z);
 
 std::ostream& write_2dvector(std::ostream& os, std::vector<std::vector<double>>& v, double scale=1.0);
 
-void read_from_txt(std::string fn, std::vector< std::vector<double> >& properties);
+void read_from_txt(const std::string& fn, std::vector< std::vector<double> >& properties);
 
 #endif //MHD_TRANSER_UTILS_H

@@ -4,6 +4,25 @@
 #include <exception>
 
 
+class AbsentDataFile : public std::exception {
+    std::string msg;
+    public:
+        AbsentDataFile(const std::string& fname) : msg(std::string("Absent data file : ") + fname) {}
+        const char * what () const noexcept override {
+            return msg.c_str();
+        }
+};
+
+
+class PhysicalException : public std::exception {
+        std::string msg;
+    public:
+        PhysicalException(const std::string& quantity) : msg(std::string("Problems with quantity : ") + quantity) {}
+        const char * what () const noexcept override {
+            return msg.c_str();
+        }
+};
+
 class BadParticleProfileParameters : public std::exception {
     const char * what () const noexcept override {
         return "Check particle profile parameters!";

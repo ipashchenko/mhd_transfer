@@ -3,6 +3,7 @@
 #include <iostream>
 #include <fstream>
 #include "utils.h"
+#include "MyExceptions.h"
 
 
 double nu_p(double n) {return sqrt(n*q_e*q_e / (pi*m_e));}
@@ -247,8 +248,11 @@ void Ctd::operator()(const double &x, double &dxdt, const double t) {
 };
 
 
-void read_from_txt(std::string fntxt, std::vector< std::vector<double> >& properties) {
+void read_from_txt(const std::string& fntxt, std::vector< std::vector<double> >& properties) {
     std::ifstream infile(fntxt);
+    if(!infile.good()){
+        throw AbsentDataFile(fntxt);
+    }
     std::vector<double> row(3);
     while (infile >> row[0] >> row[1] >> row[2])
     {

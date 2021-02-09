@@ -24,7 +24,11 @@ namespace ph = std::placeholders;
 typedef std::chrono::high_resolution_clock Clock;
 
 
+// TODO: Try using distances in pc!
 void run_on_simulations() {
+
+    std::string mhd_run_name = "test";
+
     auto t1 = Clock::now();
     std::clock_t start;
     start = std::clock();
@@ -34,7 +38,7 @@ void run_on_simulations() {
 
     // Observed frequencies in GHz
     //std::vector<double> nu_observed_ghz{15.4, 12.1, 8.1};
-    std::vector<double> nu_observed_ghz{15.4};
+    std::vector<double> nu_observed_ghz{15.4, 8.1};
     // Frequencies in the BH frame in Hz
     std::vector<double> nu_bh;
     for(auto nu_obs_ghz : nu_observed_ghz) {
@@ -43,7 +47,7 @@ void run_on_simulations() {
 
     // Setting geometry using simulations ==============================================================================
     vector< vector<double> > all_points;
-    read_from_txt("Gamma_field.txt", all_points);
+    read_from_txt(mhd_run_name + "_Gamma_field.txt", all_points);
     size_t nrows = all_points.size();
 
     std::vector<Point_3> points;
@@ -68,8 +72,8 @@ void run_on_simulations() {
     // Setting B-Field using simulations ===============================================================================
     Delaunay_triangulation tr_p;
     Delaunay_triangulation tr_fi;
-    create_triangulation("B_p_field.txt", &tr_p);
-    create_triangulation("B_phi_field.txt", &tr_fi);
+    create_triangulation(mhd_run_name + "_B_p_field.txt", &tr_p);
+    create_triangulation(mhd_run_name + "_B_phi_field.txt", &tr_fi);
     SimulationBField bfield(&tr_p, &tr_fi, false);
 //    std::vector<VectorBField*> vbfields;
 //    vbfields.push_back(&bfield);
@@ -78,27 +82,36 @@ void run_on_simulations() {
 
     // Setting N-field using simulations ===============================================================================
     Delaunay_triangulation tr_n;
-    create_triangulation("n_plasma_field.txt", &tr_n);
-    SimulationNField nfield(&tr_n, false, 2.5, 100.0);
+//    create_triangulation(mhd_run_name + "_n_plasma_field.txt", &tr_n);
+    // FIXME: Does jsq decline along the jet? Seems that spine is almost constant!
+    create_triangulation(mhd_run_name + "_jsq_plasma_field.txt", &tr_n);
+    SimulationNField nfield(&tr_n, false, 2.5, 100.0, false, 1e+06);
 //    std::vector<NField*> nfields;
 //    nfields.push_back(&nfield);
 
     // Setting V-field using simulations ===============================================================================
-    Delaunay_triangulation tr_v;
-    create_triangulation("Gamma_field.txt", &tr_v);
-    SimulationVField vfield(&tr_v);
+    Delaunay_triangulation tr_Gamma;
+    Delaunay_triangulation tr_beta_phi;
+    create_triangulation(mhd_run_name + "_Gamma_field.txt", &tr_Gamma);
+    create_triangulation(mhd_run_name + "_beta_phi_field.txt", &tr_beta_phi);
+    SimulationVField vfield(&tr_Gamma, &tr_beta_phi);
 
     Jet bkjet(&geometry, &vfield, &bfield, &nfield);
 
     // FIXME: Put inside frequency loop for dep. on frequency
     // Setting parameters of pixels and image ==========================================================================
-    int number_of_pixels_along = 300;
-    int number_of_pixels_across = 80;
+    // These are OK for uniform pixel
+//    int number_of_pixels_along = 600;
+//    int number_of_pixels_across = 200;
+//    double pixel_size_mas_start = 0.025;
+//    double pixel_size_mas_stop = 0.025;
+    // From 0.001 pc/pixel - that is for z=0.02 pc
     // Non-uniform pixel from ``pixel_size_mas_start`` (near BH) to ``pixel_size_mas_stop`` (image edges)
-    //double pixel_size_mas_start = 0.02;
-    //double pixel_size_mas_stop = 0.5;
-    double pixel_size_mas_start = 0.05;
-    double pixel_size_mas_stop = 0.5;
+    int number_of_pixels_along = 500;
+    int number_of_pixels_across = 100;
+    double pixel_size_mas_start = 0.01;
+    double pixel_size_mas_stop = 0.1;
+
     auto image_size = std::make_pair(number_of_pixels_across, number_of_pixels_along);
     auto pc_in_mas = mas_to_pc(redshift);
     std::cout << "pc_in_mas " << pc_in_mas << std::endl;
@@ -145,13 +158,13 @@ void run_on_simulations() {
         // FIXME: Put out of frequency loop - these do not depend on frequency
         // Transfer-specific parameters ================================================================================
         double tau_max = 10;
-        double dt_max_pc = 0.001;
+        double dt_max_pc = 0.01;
         double dt_max = pc*dt_max_pc;
         double tau_min_log10 = -10.0;
         double tau_min = pow(10.,tau_min_log10);
         int n_ = 100;
 
-        string polarization = "full";
+        string polarization = "I";
 
         for(int i_nu=0; i_nu < nu_observed_ghz.size(); i_nu++) {
 
@@ -175,8 +188,6 @@ void run_on_simulations() {
 
             value = "l";
             auto image_l = observation.getImage(value);
-
-
 
             std::fstream fs;
             // Remove trailing zeros: https://stackoverflow.com/a/46424921

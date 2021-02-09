@@ -31,7 +31,7 @@ void Observation::run(int n, double tau_max, double dt_max, double tau_min, doub
         for (unsigned long int k = 0; k < image_size.second; ++k) {
             auto &ray = rays[j*image_size.second+k];
         	auto &pxl = pixels[j*image_size.second+k];
-        	//std::cout << "Observing pixel " << j << ", " << k << std::endl;
+//        	std::cout << "Observing pixel " << j << ", " << k << std::endl;
         	observe_single_pixel(ray, pxl, tau_min, tau_max, n, dt_max, nu, polarization);
         }
     }
@@ -150,7 +150,7 @@ void Observation::integrate_i_adaptive(std::list<Intersection> &list_intersect, 
         double stI = background_I;
         typedef runge_kutta_dopri5<double> stepper_type;
         // One can add observer function at the end of the argument list. Here ``dt`` is the initial step size
-        int num_steps = integrate_adaptive(make_controlled(1E-14, 1E-14, dt_max, stepper_type()),
+        int num_steps = integrate_adaptive(make_controlled(1E-15, 1E-15, dt_max, stepper_type()),
                                            stokesI,
                                            stI, 0.0, length, dt);
         background_I = stI;
@@ -196,7 +196,7 @@ void Observation::integrate_full_stokes_adaptive(std::list<Intersection> &list_i
         std::vector<double> iquv = background;
 		// One can add observer function at the end of the argument list.
 		// TODO: Previously it was 1E-16, 1E-16
-		int num_steps = integrate_adaptive(make_controlled(1E-14, 1E-14, dt_max, stepper_type()),
+		int num_steps = integrate_adaptive(make_controlled(1E-10, 1E-10, dt_max, stepper_type()),
 		                   full_stokes, iquv, 0.0, length, dt);
 		background = iquv;
 	}
