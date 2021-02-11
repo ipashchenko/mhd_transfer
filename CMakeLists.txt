@@ -10,7 +10,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -lCGAL -lz -std=c++14 -fopenmp -march=native -DNDEBUG -O3 -fext-numeric-literals")
 set(SOURCE_FILES src/main.cpp src/utils.cpp src/Pixel.cpp src/Ray.cpp
         src/Image.cpp src/ImagePlane.cpp src/Geometry.cpp
-        include/MyExceptions.h include/logspace.h src/Intersection.cpp src/BField.cpp
+        include/MyExceptions.h include/logspace.h include/linspace.h src/Intersection.cpp src/BField.cpp
         src/SimulationInterpolater.cpp src/NField.cpp src/VField.cpp src/Jet.cpp
         src/Observation.cpp src/System.cpp)
 add_executable(mhd_transfer ${SOURCE_FILES})

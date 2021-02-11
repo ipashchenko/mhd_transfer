@@ -22,16 +22,22 @@ typedef K_::FT                                               Coord_type;
 typedef std::vector<Coord_type >                            Scalar_vector;
 typedef CGAL::Barycentric_coordinates::Triangle_coordinates_2<K_> Triangle_coordinates;
 
+using Eigen::Vector2d;
 using Eigen::Vector3d;
 
 
 void create_triangulation(std::string fn, Delaunay_triangulation* tr);
 
+void create_triangulation_Psi(std::string fn, Delaunay_triangulation* tr);
+
 
 class SimulationInterpolater {
 public:
     explicit SimulationInterpolater(Delaunay_triangulation *tr, double nan_value=0);
+    // Interpolate in (r, z) plane, where r & z are in pc
     double interpolated_value(Vector3d point) const;
+    // Interpolate in (Psi, z) plane, where z is in pc
+    double interpolated_value_Psi(Vector2d point) const;
 
 private:
     double nan_value_;

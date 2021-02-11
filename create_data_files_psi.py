@@ -85,10 +85,10 @@ result_jsq_plasma /= np.max(result_jsq_plasma)
 result_z_pc = np.array(result_z_pc)*pc2cm
 result_r_pc = np.array(result_r_pc)*pc2cm
 
-np.savetxt(os.path.join(save_dir, "{}_Gamma_field.txt".format(run_name)), np.dstack((result_z_pc, result_r_pc, result_Gamma))[0])
-np.savetxt(os.path.join(save_dir, "{}_n_plasma_field.txt".format(run_name)), np.dstack((result_z_pc, result_r_pc, result_n_plasma))[0])
-np.savetxt(os.path.join(save_dir, "{}_B_p_field.txt".format(run_name)), np.dstack((result_z_pc, result_r_pc, result_Bp))[0])
-np.savetxt(os.path.join(save_dir, "{}_Psi_field.txt".format(run_name)), np.dstack((result_z_pc, result_r_pc, result_Psi))[0])
-np.savetxt(os.path.join(save_dir, "{}_B_phi_field.txt".format(run_name)), np.dstack((result_z_pc, result_r_pc, result_Bphi))[0])
-np.savetxt(os.path.join(save_dir, "{}_beta_phi_field.txt".format(run_name)), np.dstack((result_z_pc, result_r_pc, result_beta_phi))[0])
-np.savetxt(os.path.join(save_dir, "{}_jsq_plasma_field.txt".format(run_name)), np.dstack((result_z_pc, result_r_pc, result_jsq_plasma))[0])
+np.savetxt(os.path.join(save_dir, "{}_Gamma_field_psi.txt".format(run_name)), np.dstack((result_z_pc, result_Psi, result_Gamma))[0])
+np.savetxt(os.path.join(save_dir, "{}_n_plasma_field_psi.txt".format(run_name)), np.dstack((result_z_pc, result_Psi, result_n_plasma))[0])
+np.savetxt(os.path.join(save_dir, "{}_B_p_field_psi.txt".format(run_name)), np.dstack((result_z_pc, result_Psi, result_Bp))[0])
+np.savetxt(os.path.join(save_dir, "{}_Psi_field_psi.txt".format(run_name)), np.dstack((result_z_pc, result_Psi, result_Psi))[0])
+np.savetxt(os.path.join(save_dir, "{}_B_phi_field_psi.txt".format(run_name)), np.dstack((result_z_pc, result_Psi, result_Bphi))[0])
+np.savetxt(os.path.join(save_dir, "{}_beta_phi_field_psi.txt".format(run_name)), np.dstack((result_z_pc, result_Psi, result_beta_phi))[0])
+np.savetxt(os.path.join(save_dir, "{}_jsq_plasma_field_psi.txt".format(run_name)), np.dstack((result_z_pc, result_Psi, result_jsq_plasma))[0])

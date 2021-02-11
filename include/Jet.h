@@ -7,12 +7,13 @@
 #include "BField.h"
 #include "NField.h"
 #include "utils.h"
+#include "SimulationInterpolater.h"
 
 
 class Jet {
     public:
         // Need VectorBField for simulations output or polarization
-        Jet(BaseGeometry* geo, VField* vfield, VectorBField* bField, NField* nField);
+        Jet(BaseGeometry* geo, VField* vfield, std::vector<VectorBField*> bFields, std::vector<NField*> nFields);
         // Need ScalarBField for analytical Blandford-Konigle
         //Jet(BaseGeometry* geo, VField* vfield, ScalarBField* bField, NField* nField);
 

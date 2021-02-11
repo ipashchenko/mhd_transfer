@@ -17,7 +17,11 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator, LogLocator
 from matplotlib.colors import LogNorm
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-from fourier import FINUFFT_NUNU
+try:
+    from fourier import FINUFFT_NUNU
+except ImportError:
+    FINUFFT_NUNU = None
+
 
 
 def convert_difmap_model_file_to_CCFITS(difmap_model_file, stokes, mapsize, restore_beam, uvfits_template, out_ccfits,
@@ -311,7 +315,7 @@ class JetImage(ABC):
             axes.set_ylabel(r"$d$, pc")
             axes.set_xlabel(r"$r_{\rm ob}$, pc")
 
-        im = axes.pcolormesh(x, y, image.T, norm=norm, cmap=cmap)
+        im = axes.pcolormesh(x, y, image.T, norm=norm, cmap=cmap, shading="gouraud")
         axes.set_aspect(aspect)
 
         # Make a colorbar with label and units
@@ -336,20 +340,17 @@ class JetImage(ABC):
         length_to_show = zoom_fr*original_length
         index_to_show = np.argmin(np.abs(cumsum_length - length_to_show)) + 1
 
-        image = self.image_intensity()
+        image = self._image_alpha
+        if image is None:
+            raise Exception("Load alpha image first!")
         fig, axes = plt.subplots(1, 1, figsize=figsize)
         image = image[:, :index_to_show]
-        image = 1e6*np.ma.array(image, mask=image == 0)
         if count_levels_from_image_min:
             count_from = image.min()
         else:
-            count_from = 0.0
-        if loglevs:
-            levels = LogLocator(base=logstep).tick_values(count_from+frac_min*image.max(), image.max())
-            norm = LogNorm(vmin=image.min(), vmax=image.max())
-        else:
-            levels = MaxNLocator(nbins=nlevels).tick_values(count_from+frac_min*image.max(), image.max())
-            norm = None
+            count_from = alpha_min
+        levels = MaxNLocator(nbins=nlevels).tick_values(count_from, image.max())
+        norm = None
         # Contours are *point* based plots, so it is suitable for ``d`` and
         # ``r_ob`` that are centers of pixels.
         if axis_units == "mas":
@@ -364,7 +365,7 @@ class JetImage(ABC):
             axes.set_xlabel(r"$r_{\rm ob}$, pc")
 
         cf = axes.contour(x, y, image.T, levels=levels, colors="gray", alpha=0.5, norm=norm)
-        im = axes.pcolormesh(x, y, alpha_image[:, :index_to_show].T, vmin=alpha_min, vmax=alpha_max, cmap="jet")
+        im = axes.pcolormesh(x, y, alpha_image[:, :index_to_show].T, vmin=alpha_min, vmax=alpha_max, cmap="jet", shading="gouraud")
         axes.set_aspect("equal")
 
         # Make a colorbar with label and units
@@ -432,6 +433,99 @@ class TwinJetImage(object):
         return fig
 
 
+def plot_interpolated(mhd_code):
+
+    Psi = np.loadtxt("{}_Psi_interpolated.txt".format(mhd_code))
+    Psi_m = np.ma.array(Psi, mask = Psi == 1)
+    plt.matshow(Psi_m[::,:125].T[::-1, ::], cmap="hsv", aspect="auto");plt.colorbar();plt.show()
+
+    jsq = np.loadtxt("{}_jsq_interpolated.txt".format(mhd_code))
+    jsq_m = np.ma.array(jsq, mask=jsq == 0)
+    plt.matshow(np.log(jsq_m[::, :125].T[::-1, ::]), cmap="hsv", aspect="auto");plt.colorbar();plt.show()
+
+    bphi = np.loadtxt("{}_beta_phi_interpolated.txt".format(mhd_code))
+    bphi_m = np.ma.array(bphi, mask = bphi == 0)
+    plt.matshow(bphi_m[::,:125].T[::-1, ::], cmap="hsv", aspect="auto");plt.colorbar();plt.show()
+
+    Gamma = np.loadtxt("{}_Gamma_interpolated.txt".format(mhd_code))
+    Gamma_m = np.ma.array(Gamma, mask = Gamma == 1)
+    plt.matshow(Gamma_m[::,:125].T[::-1, ::], cmap="hsv", aspect="auto");plt.colorbar();plt.show()
+
+    N = np.loadtxt("{}_N_interpolated.txt".format(mhd_code))
+    N_m = np.ma.array(N, mask = N == 0)
+    plt.matshow(np.log(N_m[::,:125].T[::-1, ::]), cmap="hsv", aspect="auto");plt.colorbar();plt.show()
+
+    B_phi = np.loadtxt("{}_B_phi_interpolated.txt".format(mhd_code))
+    B_phi_m = np.ma.array(B_phi, mask = B_phi == 0)
+    plt.matshow(np.log(B_phi_m[::,:125].T[::-1, ::]), cmap="hsv", aspect="auto");plt.colorbar();plt.show()
+
+    B_p = np.loadtxt("{}_B_p_interpolated.txt".format(mhd_code))
+    B_p_m = np.ma.array(B_p, mask = B_p == 0)
+    plt.matshow(np.log(B_p_m[::,:125].T[::-1, ::]), cmap="hsv", aspect="auto");plt.colorbar();plt.show()
+
+    B_tot = np.hypot(B_p_m, B_phi_m/Gamma_m)
+    plt.matshow(np.log((B_tot**2)[::,:125].T[::-1, ::]), cmap="hsv", aspect="auto");plt.colorbar();plt.show()
+
+    beta = np.sqrt(Gamma_m**2-1)/Gamma_m
+    D = 1/(Gamma_m*(1-beta*np.cos(np.deg2rad(17))))
+    boost = D**2.5
+    plt.matshow(boost[::,:125].T[::-1, ::], cmap="hsv", aspect="auto");plt.colorbar();plt.show()
+
+    # n_plasma
+    plt.matshow(np.log10(N_m*boost/Gamma_m)[::,:125].T[::-1, ::], cmap="hsv", aspect="auto");plt.colorbar();plt.show()
+    # B_tot
+    plt.matshow(np.log10(B_tot*boost)[::,:125].T[::-1, ::], cmap="hsv", aspect="auto");plt.colorbar();plt.show()
+    # jsq_plasma
+    plt.matshow(np.log10(jsq_m*boost)[::,:125].T[::-1, ::], cmap="hsv", aspect="auto");plt.colorbar();plt.show()
+
+
+def plot_psi_interpolated(mhd_code):
+
+    Psi = np.loadtxt("{}_Psi_psi_interpolated.txt".format(mhd_code))
+    Psi_m = np.ma.array(Psi, mask = Psi == 1)
+    plt.matshow(Psi_m[::,:125].T[::-1, ::], cmap="hsv", aspect="auto");plt.colorbar();plt.show()
+
+    jsq = np.loadtxt("{}_jsq_psi_interpolated.txt".format(mhd_code))
+    jsq_m = np.ma.array(jsq, mask=jsq == 0)
+    plt.matshow(np.log(jsq_m[::, :125].T[::-1, ::]), cmap="hsv", aspect="auto");plt.colorbar();plt.show()
+
+    bphi = np.loadtxt("{}_beta_phi_psi_interpolated.txt".format(mhd_code))
+    bphi_m = np.ma.array(bphi, mask = bphi == 0)
+    plt.matshow(bphi_m[::,:125].T[::-1, ::], cmap="hsv", aspect="auto");plt.colorbar();plt.show()
+
+    Gamma = np.loadtxt("{}_Gamma_psi_interpolated.txt".format(mhd_code))
+    Gamma_m = np.ma.array(Gamma, mask = Gamma == 1)
+    plt.matshow(Gamma_m[::,:125].T[::-1, ::], cmap="hsv", aspect="auto");plt.colorbar();plt.show()
+
+    N = np.loadtxt("{}_N_psi_interpolated.txt".format(mhd_code))
+    N_m = np.ma.array(N, mask = N == 0)
+    plt.matshow(np.log(N_m[::,:125].T[::-1, ::]), cmap="hsv", aspect="auto");plt.colorbar();plt.show()
+
+    B_phi = np.loadtxt("{}_B_phi_psi_interpolated.txt".format(mhd_code))
+    B_phi_m = np.ma.array(B_phi, mask = B_phi == 0)
+    plt.matshow(np.log(B_phi_m[::,:125].T[::-1, ::]), cmap="hsv", aspect="auto");plt.colorbar();plt.show()
+
+    B_p = np.loadtxt("{}_B_p_psi_interpolated.txt".format(mhd_code))
+    B_p_m = np.ma.array(B_p, mask = B_p == 0)
+    plt.matshow(np.log(B_p_m[::,:125].T[::-1, ::]), cmap="hsv", aspect="auto");plt.colorbar();plt.show()
+
+    B_tot = np.hypot(B_p_m, B_phi_m/Gamma_m)
+    plt.matshow(np.log((B_tot**2)[::,:125].T[::-1, ::]), cmap="hsv", aspect="auto");plt.colorbar();plt.show()
+
+    beta = np.sqrt(Gamma_m**2-1)/Gamma_m
+    D = 1/(Gamma_m*(1-beta*np.cos(np.deg2rad(17))))
+    boost = D**2.5
+    plt.matshow(boost[::,:125].T[::-1, ::], cmap="hsv", aspect="auto");plt.colorbar();plt.show()
+
+    # n_plasma
+    plt.matshow(np.log10(N_m*boost/Gamma_m)[::,:125].T[::-1, ::], cmap="hsv", aspect="auto");plt.colorbar();plt.show()
+    # B_tot
+    plt.matshow(np.log10(B_tot*boost)[::,:125].T[::-1, ::], cmap="hsv", aspect="auto");plt.colorbar();plt.show()
+    # jsq_plasma
+    plt.matshow(np.log10(jsq_m*boost)[::,:125].T[::-1, ::], cmap="hsv", aspect="auto");plt.colorbar();plt.show()
+
+
+
 if __name__ == "__main__":
 
     # This applies to my local work in CLion. Change it to ``Release`` (or whatever) if necessary.
@@ -453,7 +547,7 @@ if __name__ == "__main__":
     plt.show()
     fig = jm.plot_contours(zoom_fr=1.0, loglevs=True, contour_cmap="copper", count_levels_from_image_min=True)
     plt.show()
-    fig = jm.plot_alpha(figsize=(20, 7.5), alpha_min=-0.8, alpha_max=0.5)
+    fig = jm.plot_alpha(figsize=(20, 7.5), alpha_min=-0.8, alpha_max=0.5, count_levels_from_image_min=True)
     # fig.savefig("alpha_gamma_min_100_jsq_fine.png", bbox_inches="tight", dpi=300)
     plt.show()
     import sys; sys.exit(0)
