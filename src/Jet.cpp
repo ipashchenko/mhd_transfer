@@ -121,7 +121,10 @@ std::tuple<double, double> Jet::get_stokes_I_transport_coefficients(Vector3d &po
     eta_i_prime += nfield_->eta_i(b_prime, n_los_prime, nu_prime, n_prime);
     eta_i_prime += nfield_->eta_i(b_prime_tangled, n_los_prime, nu_prime, n_prime);
 
+//    std::cout << "k, eta = " << k_i_prime/D << ", " << eta_i_prime*D*D << "\n";
+
     return std::make_tuple(k_i_prime/D, eta_i_prime*D*D);
+//    return std::make_tuple(1E+23*k_i_prime/D, 1e+23*eta_i_prime*D*D);
 }
 
 

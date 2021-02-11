@@ -311,7 +311,7 @@ void run_on_simulations() {
 //    create_triangulation(mhd_run_name + "_n_plasma_field.txt", &tr_n);
     // FIXME: Does jsq decline along the jet? Seems that spine is almost constant!
     create_triangulation(mhd_run_name + "_jsq_plasma_field_psi.txt", &tr_n);
-    SimulationNField nfield(&tr_n, false, 2.5, 100.0, false, 1e+06);
+    SimulationNField nfield(&tr_n, false, 2.5, 100.0, false, 1e+09);
 //    std::vector<NField*> nfields;
 //    nfields.push_back(&nfield);
 
@@ -376,6 +376,7 @@ void run_on_simulations() {
             scales[i].resize(pixel_sizes[0].size());
             for(unsigned long j=0; j < pixel_sizes[0].size(); j++) {
                 scales[i][j] = 1E-23*(1.+redshift)*(1.+redshift)*(1.+redshift)/pixel_solid_angles[i][j];
+//                scales[i][j] = (1.+redshift)*(1.+redshift)*(1.+redshift)/pixel_solid_angles[i][j];
             }
         }
 

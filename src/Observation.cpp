@@ -74,7 +74,7 @@ pair<double, double> Observation::integrate_tau_adaptive(std::list<Intersection>
 		// This is out State
 		double optDepth = 0.0;
 		typedef runge_kutta_dopri5< double > stepper_type;
-	    auto stepper = make_dense_output(1E-12, 1E-12, dt_max, stepper_type());
+	    auto stepper = make_dense_output(1E-18, 1E-03, dt_max, stepper_type());
 		auto is_done = std::bind(check_opt_depth, tau_max, std::placeholders::_1);
 		auto ode_range = make_adaptive_range(std::ref(stepper), tau, optDepth, 0.0, length, dt);
 		auto found_iter = std::find_if(ode_range.first, ode_range.second, is_done);
@@ -151,7 +151,7 @@ void Observation::integrate_i_adaptive(std::list<Intersection> &list_intersect, 
         double stI = background_I;
         typedef runge_kutta_dopri5<double> stepper_type;
         // One can add observer function at the end of the argument list. Here ``dt`` is the initial step size
-        int num_steps = integrate_adaptive(make_controlled(1E-15, 1E-15, dt_max, stepper_type()),
+        int num_steps = integrate_adaptive(make_controlled(1E-18, 1E-03, dt_max, stepper_type()),
                                            stokesI,
                                            stI, 0.0, length, dt);
         background_I = stI;
@@ -238,8 +238,8 @@ void Observation::integrate_faraday_rotation_depth_adaptive(std::list<Intersecti
 
 void Observation::observe_single_pixel(Ray &ray, Pixel &pxl,  double tau_min, double tau_max, int n, double dt_max,
                                        double nu, string polarization) {
-    //auto ij = pxl.getij();
-    //std::cout << "Observing pixel " << ij.first << ", " << ij.second << std::endl;
+    auto ij = pxl.getij();
+    std::cout << "Observing pixel " << ij.first << ", " << ij.second << "\n";
     auto ray_direction = ray.direction();
     std::list<Intersection> list_intersect = jet->hit(ray);
     if (!list_intersect.empty()) {
