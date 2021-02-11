@@ -14,7 +14,7 @@ VectorBField::VectorBField(bool in_plasma_frame, double tangled_fraction, Geomet
     geometry_out_ = geometry_out;
 }
 
-Vector3d VectorBField::bf(const Vector3d &point) const {
+Vector3d VectorBField::bf(const Vector3d &point, double psi) const {
     double x = point[0];
     double y = point[1];
     double r_point = sqrt(x*x + y*y);
@@ -33,11 +33,11 @@ Vector3d VectorBField::bf(const Vector3d &point) const {
             return {0.0, 0.0, 0.0};
         }
     }
-    return _bf(point);
+    return _bf(point, psi);
 }
 
-Vector3d VectorBField::bf_plasma_frame(const Vector3d &point, Vector3d &v) const {
-    Vector3d b = bf(point);
+Vector3d VectorBField::bf_plasma_frame(const Vector3d &point, double psi, Vector3d &v) const {
+    Vector3d b = bf(point, psi);
     if (in_plasma_frame_) {
         return b;
     } else {
@@ -45,8 +45,8 @@ Vector3d VectorBField::bf_plasma_frame(const Vector3d &point, Vector3d &v) const
     }
 }
 
-double VectorBField::bf_tangled_plasma_frame(const Vector3d &point, Vector3d &v) const {
-    Vector3d b = bf(point);
+double VectorBField::bf_tangled_plasma_frame(const Vector3d &point, double psi, Vector3d &v) const {
+    Vector3d b = bf(point, psi);
     if (in_plasma_frame_) {
         return tangled_fraction_*b.norm();
     } else {
@@ -54,8 +54,8 @@ double VectorBField::bf_tangled_plasma_frame(const Vector3d &point, Vector3d &v)
     }
 }
 
-Vector3d VectorBField::bhat_lab_frame(const Vector3d &point, Vector3d &v) const {
-    Vector3d b = bf(point);
+Vector3d VectorBField::bhat_lab_frame(const Vector3d &point, double psi, Vector3d &v) const {
+    Vector3d b = bf(point, psi);
     if (in_plasma_frame_) {
         auto b_hat_prime = b.normalized();
         Vector3d beta = v/c;
@@ -68,12 +68,13 @@ Vector3d VectorBField::bhat_lab_frame(const Vector3d &point, Vector3d &v) const 
 SimulationBField::SimulationBField(Delaunay_triangulation *tr_p, Delaunay_triangulation *tr_fi, bool in_plasma_frame, double tangled_fraction) :
         VectorBField(in_plasma_frame, tangled_fraction, nullptr, nullptr), interp_p_(tr_p), interp_fi_(tr_fi) {}
 
-Vector3d SimulationBField::_bf(const Vector3d &point) const {
+Vector3d SimulationBField::_bf(const Vector3d &point, double psi) const {
     double x = point[0];
     double y = point[1];
-    double fi = atan2(y, x);
+    double z = point[2];
+    double phi = atan2(y, x);
 
-    double interpolated_value_p = interp_p_.interpolated_value(point);
-    double interpolated_value_fi = interp_fi_.interpolated_value(point);
-    return Vector3d{-sin(fi)*interpolated_value_fi, cos(fi)*interpolated_value_fi, interpolated_value_p};
+    double interpolated_value_p = interp_p_.interpolated_value({psi, z/pc});
+    double interpolated_value_fi = interp_fi_.interpolated_value({psi, z/pc});
+    return Vector3d{-sin(phi) * interpolated_value_fi, cos(phi) * interpolated_value_fi, interpolated_value_p};
 }

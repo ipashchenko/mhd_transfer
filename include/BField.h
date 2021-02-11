@@ -13,14 +13,17 @@ using Eigen::Vector3d;
 // specified only in plasma frame as some fraction of the vector component.
 class VectorBField {
     public:
-        virtual Vector3d _bf(const Vector3d &point) const = 0 ;
-        Vector3d bf(const Vector3d &point) const ;
+        virtual Vector3d _bf(const Vector3d &point, double psi) const = 0 ;
+        Vector3d bf(const Vector3d &point, double psi) const ;
         // B-field in plasma (comoving) frame. Needed for calculation of transfer coefficients
-        Vector3d bf_plasma_frame(const Vector3d &point, Vector3d &v) const;
+        Vector3d bf_plasma_frame(const Vector3d &point, double psi, Vector3d &v) const;
         // Tangled B-field component in plasma (comoving) frame. Needed for calculation of transfer coefficients
-        double bf_tangled_plasma_frame(const Vector3d &point, Vector3d &v) const;
+        double bf_tangled_plasma_frame(const Vector3d &point, double psi, Vector3d &v) const;
         // Unit vector of B-field in laboratory (observer) frame. Needed for calculation of polarization swing.
-        Vector3d bhat_lab_frame(const Vector3d &point, Vector3d &v) const;
+        Vector3d bhat_lab_frame(const Vector3d &point, double psi, Vector3d &v) const;
+        double get_tangled_fraction() const {
+            return tangled_fraction_;
+        };
 
     protected:
         VectorBField(bool in_plasma_frame, double tangled_fraction, Geometry* geometry_out=nullptr, Geometry* geometry_in=nullptr);
@@ -36,7 +39,7 @@ class VectorBField {
 class SimulationBField : public VectorBField {
     public:
         SimulationBField(Delaunay_triangulation *tr_p, Delaunay_triangulation *tr_fi, bool in_plasma_frame, double tangled_fraction=0.0);
-        Vector3d _bf(const Vector3d &point) const override ;
+        Vector3d _bf(const Vector3d &point, double psi) const override ;
 
     private:
         SimulationInterpolater interp_p_;

@@ -13,12 +13,12 @@
 class Jet {
     public:
         // Need VectorBField for simulations output or polarization
-        Jet(BaseGeometry* geo, VField* vfield, std::vector<VectorBField*> bFields, std::vector<NField*> nFields);
-        // Need ScalarBField for analytical Blandford-Konigle
-        //Jet(BaseGeometry* geo, VField* vfield, ScalarBField* bField, NField* nField);
+        Jet(BaseGeometry* geo, SimulationInterpolater* PsiInterpolater, VField* vfield, VectorBField* bField, NField* nField);
 
         // Get all coefficients
         std::tuple<double, double, double, double, double, double, double, double, double, double, double> get_transport_coefficients(Vector3d &point, Vector3d &n_los, double nu);
+        // Get only k & eta (for Stokes I)
+        std::tuple<double, double> get_stokes_I_transport_coefficients(Vector3d &point, Vector3d &n_los, double nu);
 
         // Absorption coefficient in ``point`` of the jet in the observer (lab)
         // frame. ``n`` is unit LOS vector in the observer frame.
@@ -32,21 +32,21 @@ class Jet {
 
         std::list<Intersection> hit(Ray& ray);
 
-        // Vector of the bulk motion speed (in cm/s) in the lab frame at point ``point``.
-        Vector3d getV(const Vector3d& point);
+        double getPsi(const Vector3d& point);
 
-        // Vector of the bulk motion speed (in c units) in the lab frame at point ``point``.
-        const Vector3d getBeta(const Vector3d& point);
+        // Vector of the bulk motion speed (in cm/s) in the lab frame at point ``point``.
+        Vector3d getV(const Vector3d& point, double psi);
 
         // B-field in the lab frame at point ``point``.
-        const Vector3d getB(const Vector3d& point);
+        const Vector3d getB(const Vector3d& point, double psi);
 
         // Unit vector of B-field in the lab frame at point ``point``.
-        const Vector3d getBhat(const Vector3d& point);
+        const Vector3d getBhat(const Vector3d& point, double psi);
 
 
     private:
         BaseGeometry* geometry_;
+        SimulationInterpolater* PsiInterpolater_;
         VField* vfield_;
         VectorBField* bfield_;
         NField* nfield_;

@@ -11,10 +11,10 @@ using Eigen::Vector3d;
 class NField {
     public:
         // This returns density
-        virtual double _nf(const Vector3d &point) const = 0;
+        virtual double _nf(const Vector3d &point, double psi) const = 0;
         // This wraps possible Geometry
-        double nf(const Vector3d &point) const;
-        double nf_plasma_frame(const Vector3d &point, double &gamma) const;
+        double nf(const Vector3d &point, double psi) const;
+        double nf_plasma_frame(const Vector3d &point, double psi, double &gamma) const;
 
         virtual double k_i(double b, Vector3d &n_los, double nu, double n) const = 0;
         // Absorption coefficient for given vector of magnetic field ``b``, unit LOS
@@ -129,14 +129,11 @@ class ThermalNField : public NField {
 };
 
 
-
-
-
 class SimulationNField: public PowerLawNField {
     public:
         SimulationNField(Delaunay_triangulation *tr, bool in_plasma_frame, double s, double gamma_min,
                          bool changing_s=false, double scale_factor=1.0);
-        double _nf(const Vector3d &point) const override;
+        double _nf(const Vector3d &point, double psi) const override;
 
     private:
         double scale_factor_;

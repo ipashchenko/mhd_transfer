@@ -23,21 +23,16 @@ typedef std::vector<Coord_type >                            Scalar_vector;
 typedef CGAL::Barycentric_coordinates::Triangle_coordinates_2<K_> Triangle_coordinates;
 
 using Eigen::Vector2d;
-using Eigen::Vector3d;
 
-
+// Using file with (r, z, value) or (r, Psi, value) create triangulation. r & z are in pc
 void create_triangulation(std::string fn, Delaunay_triangulation* tr);
-
-void create_triangulation_Psi(std::string fn, Delaunay_triangulation* tr);
 
 
 class SimulationInterpolater {
 public:
     explicit SimulationInterpolater(Delaunay_triangulation *tr, double nan_value=0);
-    // Interpolate in (r, z) plane, where r & z are in pc
-    double interpolated_value(Vector3d point) const;
-    // Interpolate in (Psi, z) plane, where z is in pc
-    double interpolated_value_Psi(Vector2d point) const;
+    // Interpolate in (r, z) or (Psi, z) plane, where r & z are in pc
+    double interpolated_value(Vector2d point) const;
 
 private:
     double nan_value_;

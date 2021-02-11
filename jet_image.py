@@ -537,7 +537,7 @@ if __name__ == "__main__":
     i_image_high = np.loadtxt("{}/jet_image_{}_{}.txt".format(jetpol_run_directory, "i", freq_ghz_high))
     alpha_image = np.log(i_image_low/i_image_high)/np.log(freq_ghz_low/freq_ghz_high)
 
-    jm = JetImage(z=0.00436, n_along=400, n_across=100,
+    jm = JetImage(z=0.00436, n_along=500, n_across=100,
                   lg_pixel_size_mas_min=np.log10(0.01),
                   lg_pixel_size_mas_max=np.log10(0.1), jet_side=True)
     [jm.load_image_stokes(stk, "{}/jet_image_{}_{}.txt".format(jetpol_run_directory, stk.lower(), freq_ghz_high)) for stk in stokes]

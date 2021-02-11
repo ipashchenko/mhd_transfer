@@ -1,3 +1,4 @@
+# This creates data files in format (r[pc], z[pc], value)
 import os
 import glob
 import numpy as np
@@ -82,8 +83,8 @@ for i, z_pc in enumerate(zs_pc):
 
 result_jsq_plasma = np.array(result_jsq_plasma)
 result_jsq_plasma /= np.max(result_jsq_plasma)
-result_z_pc = np.array(result_z_pc)*pc2cm
-result_r_pc = np.array(result_r_pc)*pc2cm
+result_z_pc = np.array(result_z_pc)
+result_r_pc = np.array(result_r_pc)
 
 np.savetxt(os.path.join(save_dir, "{}_Gamma_field.txt".format(run_name)), np.dstack((result_z_pc, result_r_pc, result_Gamma))[0])
 np.savetxt(os.path.join(save_dir, "{}_n_plasma_field.txt".format(run_name)), np.dstack((result_z_pc, result_r_pc, result_n_plasma))[0])

@@ -10,7 +10,7 @@ NField::NField (bool in_plasma_frame, Geometry* geometry) :
 }
 
 
-double NField::nf(const Vector3d &point) const {
+double NField::nf(const Vector3d &point, double psi) const {
     double x, y, r_point, r_border, result;
 
     if(geometry_) {
@@ -23,18 +23,18 @@ double NField::nf(const Vector3d &point) const {
             return 0.0;
         }
         else {
-            result = _nf(point);
+            result = _nf(point, psi);
         }
     }
     else {
-        result = _nf(point);
+        result = _nf(point, psi);
     }
 
     return result;
 }
 
-double NField::nf_plasma_frame(const Vector3d &point, double &gamma) const {
-    double n = nf(point);
+double NField::nf_plasma_frame(const Vector3d &point, double psi, double &gamma) const {
+    double n = nf(point, psi);
     if (in_plasma_frame_) {
         return n;
     } else {
@@ -322,6 +322,7 @@ SimulationNField::SimulationNField(Delaunay_triangulation *tr, bool in_plasma_fr
         interp_(tr),
         scale_factor_(scale_factor) {}
 
-double SimulationNField::_nf(const Vector3d &point) const {
-    return scale_factor_*interp_.interpolated_value(point);
+double SimulationNField::_nf(const Vector3d &point, double psi) const {
+    double z = point[2];
+    return scale_factor_*interp_.interpolated_value({psi, z/pc});
 };

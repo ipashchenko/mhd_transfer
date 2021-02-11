@@ -2,9 +2,12 @@
 #include "Jet.h"
 #include "MyExceptions.h"
 
+using Eigen::Vector3d;
 
-Jet::Jet(BaseGeometry *newgeo, VField *newvfield, VectorBField* newbField, NField* newnField) {
+
+Jet::Jet(BaseGeometry *newgeo, SimulationInterpolater *newPsiInterpolater, VField *newvfield, VectorBField* newbField, NField* newnField) {
     geometry_ = newgeo;
+    PsiInterpolater_ = newPsiInterpolater;
     vfield_ = newvfield;
     bfield_ = newbField;
     nfield_ = newnField;
@@ -21,10 +24,13 @@ std::tuple<double, double, double, double, double, double, double, double, doubl
     // nu_prime = f(nu, n_los, v) = nu/getD
     // n_prime = f(n, v) = n/Gamma
 
-    Vector3d v = getV(point);
+    // Get Psi given (r, z)
+    double psi = getPsi(point);
+
+    Vector3d v = getV(point, psi);
     auto gamma = getG(v);
 
-    auto b_prime = bfield_->bf_plasma_frame(point, v);
+    auto b_prime = bfield_->bf_plasma_frame(point, psi, v);
 
     //if(b_prime.norm() < eps_B || isnan(b_prime.norm())) {
     //    return std::make_tuple(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
@@ -34,7 +40,7 @@ std::tuple<double, double, double, double, double, double, double, double, doubl
         return std::make_tuple(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
     }
 
-    auto b_prime_tangled = bfield_->bf_tangled_plasma_frame(point, v);
+    auto b_prime_tangled = b_prime.norm()*bfield_->get_tangled_fraction();
 
     auto D = getD(n_los, v);
     auto nu_prime = nu/D;
@@ -52,7 +58,7 @@ std::tuple<double, double, double, double, double, double, double, double, doubl
     double k_F_prime = 0.0;
     double k_C_prime = 0.0;
     double h_Q_prime = 0.0;
-    double n_prime = nfield_->nf_plasma_frame(point, gamma);
+    double n_prime = nfield_->nf_plasma_frame(point, psi, gamma);
     k_i_prime += nfield_->k_i(b_prime, n_los_prime, nu_prime, n_prime);
     k_i_prime += nfield_->k_i(b_prime_tangled, n_los_prime, nu_prime, n_prime);
     k_q_prime += nfield_->k_q(b_prime, n_los_prime, nu_prime, n_prime);
@@ -78,6 +84,48 @@ std::tuple<double, double, double, double, double, double, double, double, doubl
 }
 
 
+std::tuple<double, double> Jet::get_stokes_I_transport_coefficients(Vector3d &point, Vector3d &n_los, double nu) {
+    // Example for k_I (Lyutikov et al. 2005):
+    // First, comoving frame ``k_i_prime`` (in the rest frame of the emission element) is connected to this ``k_i`` as
+    // ``k_i = k_i_prime / D``. Second, in ``k_i_prime`` we need all quantities in comoving frame (primed) in terms of
+    // lab frame:
+    // b_prime = f(b, v)
+    // n_los_prime = f(n_los, v)
+    // nu_prime = f(nu, n_los, v) = nu/getD
+    // n_prime = f(n, v) = n/Gamma
+
+    // Get Psi given (r, z)
+    double psi = getPsi(point);
+
+    Vector3d v = getV(point, psi);
+    auto gamma = getG(v);
+
+    auto b_prime = bfield_->bf_plasma_frame(point, psi, v);
+
+    if(b_prime.norm() < eps_B) {
+        return std::make_tuple(0.0, 0.0);
+    }
+
+    auto b_prime_tangled = b_prime.norm()*bfield_->get_tangled_fraction();
+
+    auto D = getD(n_los, v);
+    auto nu_prime = nu/D;
+    auto n_los_prime = get_n_los_prime(n_los, v);
+
+    // Now calculate all coefficients
+    double k_i_prime = 0.0;
+    double eta_i_prime = 0.0;
+    double n_prime = nfield_->nf_plasma_frame(point, psi, gamma);
+    k_i_prime += nfield_->k_i(b_prime, n_los_prime, nu_prime, n_prime);
+    k_i_prime += nfield_->k_i(b_prime_tangled, n_los_prime, nu_prime, n_prime);
+    eta_i_prime += nfield_->eta_i(b_prime, n_los_prime, nu_prime, n_prime);
+    eta_i_prime += nfield_->eta_i(b_prime_tangled, n_los_prime, nu_prime, n_prime);
+
+    return std::make_tuple(k_i_prime/D, eta_i_prime*D*D);
+}
+
+
+
 
 // This is k_i in lab frame that could be integrated along LOS.
 double Jet::getKI(Vector3d &point, Vector3d &n_los, double nu) {
@@ -90,10 +138,13 @@ double Jet::getKI(Vector3d &point, Vector3d &n_los, double nu) {
     // nu_prime = f(nu, n_los, v) = nu/getD
     // n_prime = f(n, v) = n/Gamma
 
-    Vector3d v = getV(point);
+    // Get Psi given (r, z)
+    double psi = getPsi(point);
+
+    Vector3d v = getV(point, psi);
     auto gamma = getG(v);
 
-    auto b_prime = bfield_->bf_plasma_frame(point, v);
+    auto b_prime = bfield_->bf_plasma_frame(point, psi, v);
 
     //if(b_prime.norm() < eps_B || isnan(b_prime.norm())) {
     //    return 0.0;
@@ -103,14 +154,14 @@ double Jet::getKI(Vector3d &point, Vector3d &n_los, double nu) {
         return 0.0;
     }
 
-    auto b_prime_tangled = bfield_->bf_tangled_plasma_frame(point, v);
+    auto b_prime_tangled = b_prime.norm()*bfield_->get_tangled_fraction();
 
     auto D = getD(n_los, v);
     auto nu_prime = nu/D;
     auto n_los_prime = get_n_los_prime(n_los, v);
 
     double k_i_prime = 0.0;
-    double n_prime = nfield_->nf_plasma_frame(point, gamma);
+    double n_prime = nfield_->nf_plasma_frame(point, psi, gamma);
     k_i_prime += nfield_->k_i(b_prime, n_los_prime, nu_prime, n_prime);
     k_i_prime += nfield_->k_i(b_prime_tangled, n_los_prime, nu_prime, n_prime);
 
@@ -131,23 +182,27 @@ double Jet::getEtaI(Vector3d &point, Vector3d &n_los, double nu) {
     // n_los_prime = f(n_los, v)
     // nu_prime = f(nu, n_los, v) = nu/getD
     // n_prime = f(n, v) = n/Gamma
-    Vector3d v = getV(point);
+
+    // Get Psi given (r, z)
+    double psi = getPsi(point);
+
+    Vector3d v = getV(point, psi);
     auto gamma = getG(v);
 
-    auto b_prime = bfield_->bf_plasma_frame(point, v);
+    auto b_prime = bfield_->bf_plasma_frame(point, psi, v);
 
     if(b_prime.norm() < eps_B || isnan(b_prime.norm())) {
         return 0.0;
     }
 
-    auto b_prime_tangled = bfield_->bf_tangled_plasma_frame(point, v);
+    auto b_prime_tangled = b_prime.norm()*bfield_->get_tangled_fraction();
 
     auto D = getD(n_los, v);
     auto nu_prime = nu/D;
     auto n_los_prime = get_n_los_prime(n_los, v);
 
     double eta_i_prime = 0.0;
-    double n_prime = nfield_->nf_plasma_frame(point, gamma);
+    double n_prime = nfield_->nf_plasma_frame(point, psi, gamma);
     eta_i_prime += nfield_->eta_i(b_prime, n_los_prime, nu_prime, n_prime);
     eta_i_prime += nfield_->eta_i(b_prime_tangled, n_los_prime, nu_prime, n_prime);
 
@@ -160,10 +215,14 @@ double Jet::getEtaI(Vector3d &point, Vector3d &n_los, double nu) {
 
 
 double Jet::getKF(Vector3d &point, Vector3d &n_los, double nu) {
-    Vector3d v = getV(point);
+
+    // Get Psi given (r, z)
+    double psi = getPsi(point);
+
+    Vector3d v = getV(point, psi);
     auto gamma = getG(v);
 
-    auto b_prime = bfield_->bf_plasma_frame(point, v);
+    auto b_prime = bfield_->bf_plasma_frame(point, psi, v);
 
     if(b_prime.norm() < eps_B || isnan(b_prime.norm())) {
         return 0.0;
@@ -174,7 +233,7 @@ double Jet::getKF(Vector3d &point, Vector3d &n_los, double nu) {
     auto n_los_prime = get_n_los_prime(n_los, v);
 
     double k_F_prime = 0.0;
-    double n_prime = nfield_->nf_plasma_frame(point, gamma);
+    double n_prime = nfield_->nf_plasma_frame(point, psi, gamma);
     k_F_prime += nfield_->k_F(b_prime, n_los_prime, nu_prime, n_prime);
 
     auto result = k_F_prime/D;
@@ -190,25 +249,29 @@ std::list<Intersection> Jet::hit(Ray &ray) {
     return geometry_->hit(ray);
 }
 
-Vector3d Jet::getV(const Vector3d &point) {
-    auto v = vfield_->vf(point);
+
+double Jet::getPsi(const Vector3d &point) {
+    double x = point[0]/pc;
+    double y = point[1]/pc;
+    double z = point[2]/pc;
+    // Get Psi given (r, z)
+    return PsiInterpolater_->interpolated_value({hypot(x, y), z});
+}
+
+Vector3d Jet::getV(const Vector3d &point, double psi) {
+    auto v = vfield_->vf(point, psi);
     if(v.norm() > c) {
         std::cout << "Speed > c!!!";
         throw PhysicalException("Speed");
     }
     return v;
-//    return vfield_->vf(point);
 }
 
-const Vector3d Jet::getBeta(const Vector3d &point) {
-    return vfield_->vf(point)/c;
+const Vector3d Jet::getB(const Vector3d &point, double psi) {
+    return bfield_->bf(point, psi);
 }
 
-const Vector3d Jet::getB(const Vector3d &point) {
-    return bfield_->bf(point);
-}
-
-const Vector3d Jet::getBhat(const Vector3d& point) {
-    auto v = getV(point);
-    return bfield_->bhat_lab_frame(point, v);
+const Vector3d Jet::getBhat(const Vector3d& point, double psi) {
+    auto v = getV(point, psi);
+    return bfield_->bhat_lab_frame(point, psi, v);
 }

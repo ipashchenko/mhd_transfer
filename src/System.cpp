@@ -36,8 +36,10 @@ void I::operator()(const double &x, double &dxdt, const double t) {
         compensate_negative_I = -x;
     }
 
-    dxdt = jet->getEtaI(point, ray_direction, nu) -
-        jet->getKI(point, ray_direction, nu) * (x+compensate_negative_I);
+    double k_i, eta_i;
+    std::tie(k_i, eta_i) = jet->get_stokes_I_transport_coefficients(point, ray_direction, nu);
+
+    dxdt = eta_i - k_i*(x+compensate_negative_I);
 
     // This adds to previous step Stokes I, so add value that compensating negative Stokes I from previous step
     dxdt += compensate_negative_I;
@@ -62,16 +64,22 @@ void FullStokes::operator()(const state_type &x, state_type &dxdt,
 	     compensate_negative_I = -x[0];
 	}
 
+
+
+	// TODO: Do I need this block of checking non-neglible B-field?
+	double psi = jet->getPsi(point);
 	// Find value of B in lab frame to decide about making transport or not
 	// FIXME: This is not always plasma-frame B!
-	auto b_in_plasma_frame = jet->getB(point);
+	auto b_in_plasma_frame = jet->getB(point, psi);
 	auto bvalues_in_plasma_frame = b_in_plasma_frame.norm();
+
+
 
 	// Non-zero B => make some transport!
 	if(bvalues_in_plasma_frame > eps_B) {
 
-        Vector3d B_hat = jet->getBhat(point);
-        Vector3d beta = jet->getV(point)/c;
+        Vector3d B_hat = jet->getBhat(point, psi);
+        Vector3d beta = jet->getV(point, psi)/c;
         // Unit vector of electric vector of wave (EVPA) in lab frame.
         // FIXME: If beta = 0 => e must be perpendicular to B_hat --- fixed inside ``e_hat`` (in function ``utils.q()``)
         Vector3d e = e_hat(B_hat, beta, ray_direction);
