@@ -25,227 +25,218 @@ namespace ph = std::placeholders;
 typedef std::chrono::high_resolution_clock Clock;
 
 
-//void check_interpolations() {
-//    std::string mhd_run_name = "psi10";
-//
-//    Delaunay_triangulation tr_B_p, tr_B_phi, tr_N, tr_Gamma, tr_beta_phi, tr_jsq, tr_Psi;
-//    create_triangulation(mhd_run_name + "_B_p_field.txt", &tr_B_p);
-//    create_triangulation(mhd_run_name + "_B_phi_field.txt", &tr_B_phi);
-//    create_triangulation(mhd_run_name + "_Psi_field.txt", &tr_Psi);
-//    create_triangulation(mhd_run_name + "_n_plasma_field.txt", &tr_N);
-//    create_triangulation(mhd_run_name + "_Gamma_field.txt", &tr_Gamma);
-//    create_triangulation(mhd_run_name + "_beta_phi_field.txt", &tr_beta_phi);
-//    create_triangulation(mhd_run_name + "_jsq_plasma_field.txt", &tr_jsq);
-//
-//
-//    SimulationInterpolater interp_B_p(&tr_B_p);
-//    SimulationInterpolater interp_B_phi(&tr_B_phi);
-//    SimulationInterpolater interp_N(&tr_N);
-//    SimulationInterpolater interp_Gamma(&tr_Gamma, 1.0);
-//    SimulationInterpolater interp_beta_phi(&tr_beta_phi);
-//    SimulationInterpolater interp_jsq(&tr_jsq);
-//    SimulationInterpolater interp_Psi(&tr_Psi, 1.0);
-//
-//    // Points where to find values
-//    size_t n_along = 1500;
-//    size_t n_across = 200;
-//    auto z_pc = linspace(0.0, 1.5, 1501);
-//    auto r_pc = linspace(0.0, 0.2, 201);
-//
-//    std::vector<std::vector<double>> B_p, B_phi, N, Gamma, beta_phi, jsq, Psi;
-//    // Iterate and construct Vector3D(r_pc, 0, z_pc)
-//    B_p.resize(n_along);
-//    B_phi.resize(n_along);
-//    N.resize(n_along);
-//    Gamma.resize(n_along);
-//    beta_phi.resize(n_along);
-//    jsq.resize(n_along);
-//    Psi.resize(n_along);
-//    for(size_t i=0; i < n_along; i++) {
-//        B_p[i].resize(n_across);
-//        B_phi[i].resize(n_across);
-//        N[i].resize(n_across);
-//        Gamma[i].resize(n_across);
-//        beta_phi[i].resize(n_across);
-//        jsq[i].resize(n_across);
-//        Psi[i].resize(n_across);
-//        for(size_t j=0; j < n_across; j++) {
-//            Vector3d pos = {r_pc[j]*pc, 0, z_pc[i]*pc};
-//            B_p[i][j] = interp_B_p.interpolated_value(pos);
-//            B_phi[i][j] = interp_B_phi.interpolated_value(pos);
-//            N[i][j] = interp_N.interpolated_value(pos);
-//            Gamma[i][j] = interp_Gamma.interpolated_value(pos);
-//            beta_phi[i][j] = interp_beta_phi.interpolated_value(pos);
-//            jsq[i][j] = interp_jsq.interpolated_value(pos);
-//            Psi[i][j] = interp_Psi.interpolated_value(pos);
-//        }
-//    }
-//
-//
-//    std::fstream fs;
-//
-//    fs.open(mhd_run_name + "_B_p_interpolated.txt", std::ios::out | std::ios::app);
-//    if (fs.is_open()) {
-//        write_2dvector(fs, B_p);
-//        fs.close();
-//    }
-//
-//    fs.open(mhd_run_name + "_B_phi_interpolated.txt", std::ios::out | std::ios::app);
-//    if (fs.is_open()) {
-//        write_2dvector(fs, B_phi);
-//        fs.close();
-//    }
-//
-//    fs.open(mhd_run_name + "_N_interpolated.txt", std::ios::out | std::ios::app);
-//    if (fs.is_open()) {
-//        write_2dvector(fs, N);
-//        fs.close();
-//    }
-//
-//    fs.open(mhd_run_name + "_Gamma_interpolated.txt", std::ios::out | std::ios::app);
-//    if (fs.is_open()) {
-//        write_2dvector(fs, Gamma);
-//        fs.close();
-//    }
-//
-//    fs.open(mhd_run_name + "_beta_phi_interpolated.txt", std::ios::out | std::ios::app);
-//    if (fs.is_open()) {
-//        write_2dvector(fs, beta_phi);
-//        fs.close();
-//    }
-//
-//    fs.open(mhd_run_name + "_jsq_interpolated.txt", std::ios::out | std::ios::app);
-//    if (fs.is_open()) {
-//        write_2dvector(fs, jsq);
-//        fs.close();
-//    }
-//
-//    fs.open(mhd_run_name + "_Psi_interpolated.txt", std::ios::out | std::ios::app);
-//    if (fs.is_open()) {
-//        write_2dvector(fs, Psi);
-//        fs.close();
-//    }
-//}
-//
-//
-//void check_psi_interpolations() {
-//    std::string mhd_run_name = "psi10";
-//
-//    Delaunay_triangulation tr_B_p, tr_B_phi, tr_N, tr_Gamma, tr_beta_phi, tr_jsq, tr_Psi, tr_rPsi;
-//    // Triangulations for (z, Psi, value)
-//    create_triangulation_Psi(mhd_run_name + "_B_p_field_psi.txt", &tr_B_p);
-//    create_triangulation_Psi(mhd_run_name + "_B_phi_field_psi.txt", &tr_B_phi);
-//    create_triangulation_Psi(mhd_run_name + "_Psi_field_psi.txt", &tr_Psi);
-//    create_triangulation_Psi(mhd_run_name + "_n_plasma_field_psi.txt", &tr_N);
-//    create_triangulation_Psi(mhd_run_name + "_Gamma_field_psi.txt", &tr_Gamma);
-//    create_triangulation_Psi(mhd_run_name + "_beta_phi_field_psi.txt", &tr_beta_phi);
-//    create_triangulation_Psi(mhd_run_name + "_jsq_plasma_field_psi.txt", &tr_jsq);
-//    // Triangulation for (z, r, Psi)
-//    create_triangulation(mhd_run_name + "_Psi_field.txt", &tr_rPsi);
-//
-//    // Interpolates in (z, Psi) coordinates
-//    SimulationInterpolater interp_B_p(&tr_B_p);
-//    SimulationInterpolater interp_B_phi(&tr_B_phi);
-//    SimulationInterpolater interp_N(&tr_N);
-//    SimulationInterpolater interp_Gamma(&tr_Gamma, 1.0);
-//    SimulationInterpolater interp_beta_phi(&tr_beta_phi);
-//    SimulationInterpolater interp_jsq(&tr_jsq);
-//    SimulationInterpolater interp_Psi(&tr_Psi, 1.0);
-//
-//    // Interpolate Psi(z, r): given (z, r) returns (Psi)
-//    SimulationInterpolater interp_rPsi(&tr_rPsi, 1.0);
-//    // Points where to find values
-//    size_t n_along = 1500;
-//    size_t n_across = 200;
-//    auto z_pc = linspace(0.0, 1.5, 1501);
-//    auto r_pc = linspace(0.0, 0.2, 201);
-//    auto psi = linspace(0.0, 1.0, 201);
-//
-//    std::vector<std::vector<double>> B_p, B_phi, N, Gamma, beta_phi, jsq, Psi;
-//    // Iterate and construct Vector3D(r_pc, 0, z_pc)
-//    B_p.resize(n_along);
-//    B_phi.resize(n_along);
-//    N.resize(n_along);
-//    Gamma.resize(n_along);
-//    beta_phi.resize(n_along);
-//    jsq.resize(n_along);
-//    Psi.resize(n_along);
-//    for(size_t i=0; i < n_along; i++) {
-//        B_p[i].resize(n_across);
-//        B_phi[i].resize(n_across);
-//        N[i].resize(n_across);
-//        Gamma[i].resize(n_across);
-//        beta_phi[i].resize(n_across);
-//        jsq[i].resize(n_across);
-//        Psi[i].resize(n_across);
-//        for(size_t j=0; j < n_across; j++) {
-//            // Point in physical space
-//            Vector3d pos = {r_pc[j]*pc, 0, z_pc[i]*pc};
-//            // Point in (z, Psi) space
-//            Vector2d pos_psi = {interp_rPsi.interpolated_value(pos), z_pc[i]*pc};
-////            Vector2d pos_psi = {psi[j],z_pc[i]*pc};
-//
-//            // Find interpolated in (z, Psi) space values
-//            B_p[i][j] = interp_B_p.interpolated_value_Psi(pos_psi);
-//            B_phi[i][j] = interp_B_phi.interpolated_value_Psi(pos_psi);
-//            N[i][j] = interp_N.interpolated_value_Psi(pos_psi);
-//            Gamma[i][j] = interp_Gamma.interpolated_value_Psi(pos_psi);
-//            beta_phi[i][j] = interp_beta_phi.interpolated_value_Psi(pos_psi);
-//            jsq[i][j] = interp_jsq.interpolated_value_Psi(pos_psi);
-//            Psi[i][j] = interp_Psi.interpolated_value_Psi(pos_psi);
-//        }
-//    }
-//
-//    std::fstream fs;
-//
-//    fs.open(mhd_run_name + "_B_p_psi_interpolated.txt", std::ios::out | std::ios::app);
-//    if (fs.is_open()) {
-//        write_2dvector(fs, B_p);
-//        fs.close();
-//    }
-//
-//    fs.open(mhd_run_name + "_B_phi_psi_interpolated.txt", std::ios::out | std::ios::app);
-//    if (fs.is_open()) {
-//        write_2dvector(fs, B_phi);
-//        fs.close();
-//    }
-//
-//    fs.open(mhd_run_name + "_N_psi_interpolated.txt", std::ios::out | std::ios::app);
-//    if (fs.is_open()) {
-//        write_2dvector(fs, N);
-//        fs.close();
-//    }
-//
-//    fs.open(mhd_run_name + "_Gamma_psi_interpolated.txt", std::ios::out | std::ios::app);
-//    if (fs.is_open()) {
-//        write_2dvector(fs, Gamma);
-//        fs.close();
-//    }
-//
-//    fs.open(mhd_run_name + "_beta_phi_psi_interpolated.txt", std::ios::out | std::ios::app);
-//    if (fs.is_open()) {
-//        write_2dvector(fs, beta_phi);
-//        fs.close();
-//    }
-//
-//    fs.open(mhd_run_name + "_jsq_psi_interpolated.txt", std::ios::out | std::ios::app);
-//    if (fs.is_open()) {
-//        write_2dvector(fs, jsq);
-//        fs.close();
-//    }
-//
-//    fs.open(mhd_run_name + "_Psi_psi_interpolated.txt", std::ios::out | std::ios::app);
-//    if (fs.is_open()) {
-//        write_2dvector(fs, Psi);
-//        fs.close();
-//    }
-//}
+void check_interpolations(const std::string& mhd_run_name) {
+
+    Delaunay_triangulation tr_B_p, tr_B_phi, tr_N, tr_Gamma, tr_beta_phi, tr_jsq, tr_Psi;
+    create_triangulation(mhd_run_name + "_B_p_field.txt", &tr_B_p);
+    create_triangulation(mhd_run_name + "_B_phi_field.txt", &tr_B_phi);
+    create_triangulation(mhd_run_name + "_Psi_field.txt", &tr_Psi);
+    create_triangulation(mhd_run_name + "_n_plasma_field.txt", &tr_N);
+    create_triangulation(mhd_run_name + "_Gamma_field.txt", &tr_Gamma);
+    create_triangulation(mhd_run_name + "_beta_phi_field.txt", &tr_beta_phi);
+    create_triangulation(mhd_run_name + "_jsq_plasma_field.txt", &tr_jsq);
 
 
-// TODO: Try using distances in pc!
-void run_on_simulations() {
+    SimulationInterpolater interp_B_p(&tr_B_p);
+    SimulationInterpolater interp_B_phi(&tr_B_phi);
+    SimulationInterpolater interp_N(&tr_N);
+    SimulationInterpolater interp_Gamma(&tr_Gamma, 1.0);
+    SimulationInterpolater interp_beta_phi(&tr_beta_phi);
+    SimulationInterpolater interp_jsq(&tr_jsq);
+    SimulationInterpolater interp_Psi(&tr_Psi, 1.0);
 
-    std::string mhd_run_name = "psi10";
+    // Points where to find values
+    size_t n_along = 1500;
+    size_t n_across = 200;
+    auto z_pc = linspace(0.0, 1.5, 1501);
+    auto r_pc = linspace(0.0, 0.2, 201);
+
+    std::vector<std::vector<double>> B_p, B_phi, N, Gamma, beta_phi, jsq, Psi;
+    B_p.resize(n_along);
+    B_phi.resize(n_along);
+    N.resize(n_along);
+    Gamma.resize(n_along);
+    beta_phi.resize(n_along);
+    jsq.resize(n_along);
+    Psi.resize(n_along);
+    for(size_t i=0; i < n_along; i++) {
+        B_p[i].resize(n_across);
+        B_phi[i].resize(n_across);
+        N[i].resize(n_across);
+        Gamma[i].resize(n_across);
+        beta_phi[i].resize(n_across);
+        jsq[i].resize(n_across);
+        Psi[i].resize(n_across);
+        for(size_t j=0; j < n_across; j++) {
+            Vector2d pos = {r_pc[j], z_pc[i]};
+            B_p[i][j] = interp_B_p.interpolated_value(pos);
+            B_phi[i][j] = interp_B_phi.interpolated_value(pos);
+            N[i][j] = interp_N.interpolated_value(pos);
+            Gamma[i][j] = interp_Gamma.interpolated_value(pos);
+            beta_phi[i][j] = interp_beta_phi.interpolated_value(pos);
+            jsq[i][j] = interp_jsq.interpolated_value(pos);
+            Psi[i][j] = interp_Psi.interpolated_value(pos);
+        }
+    }
+
+    std::fstream fs;
+
+    fs.open(mhd_run_name + "_B_p_interpolated.txt", std::ios::out | std::ios::app);
+    if (fs.is_open()) {
+        write_2dvector(fs, B_p);
+        fs.close();
+    }
+
+    fs.open(mhd_run_name + "_B_phi_interpolated.txt", std::ios::out | std::ios::app);
+    if (fs.is_open()) {
+        write_2dvector(fs, B_phi);
+        fs.close();
+    }
+
+    fs.open(mhd_run_name + "_N_interpolated.txt", std::ios::out | std::ios::app);
+    if (fs.is_open()) {
+        write_2dvector(fs, N);
+        fs.close();
+    }
+
+    fs.open(mhd_run_name + "_Gamma_interpolated.txt", std::ios::out | std::ios::app);
+    if (fs.is_open()) {
+        write_2dvector(fs, Gamma);
+        fs.close();
+    }
+
+    fs.open(mhd_run_name + "_beta_phi_interpolated.txt", std::ios::out | std::ios::app);
+    if (fs.is_open()) {
+        write_2dvector(fs, beta_phi);
+        fs.close();
+    }
+
+    fs.open(mhd_run_name + "_jsq_interpolated.txt", std::ios::out | std::ios::app);
+    if (fs.is_open()) {
+        write_2dvector(fs, jsq);
+        fs.close();
+    }
+
+    fs.open(mhd_run_name + "_Psi_interpolated.txt", std::ios::out | std::ios::app);
+    if (fs.is_open()) {
+        write_2dvector(fs, Psi);
+        fs.close();
+    }
+}
+
+
+void check_psi_interpolations(const std::string& mhd_run_name) {
+
+    Delaunay_triangulation tr_B_p, tr_B_phi, tr_N, tr_Gamma, tr_beta_phi, tr_jsq, tr_Psi, tr_rPsi;
+    // Triangulations for (z, Psi, value)
+    create_triangulation(mhd_run_name + "_B_p_field_psi.txt", &tr_B_p);
+    create_triangulation(mhd_run_name + "_B_phi_field_psi.txt", &tr_B_phi);
+    create_triangulation(mhd_run_name + "_Psi_field_psi.txt", &tr_Psi);
+    create_triangulation(mhd_run_name + "_n_plasma_field_psi.txt", &tr_N);
+    create_triangulation(mhd_run_name + "_Gamma_field_psi.txt", &tr_Gamma);
+    create_triangulation(mhd_run_name + "_beta_phi_field_psi.txt", &tr_beta_phi);
+    create_triangulation(mhd_run_name + "_jsq_plasma_field_psi.txt", &tr_jsq);
+    // Triangulation for (z, r, Psi)
+    create_triangulation(mhd_run_name + "_Psi_field.txt", &tr_rPsi);
+
+    // Interpolates in (z, Psi) coordinates
+    SimulationInterpolater interp_B_p(&tr_B_p);
+    SimulationInterpolater interp_B_phi(&tr_B_phi);
+    SimulationInterpolater interp_N(&tr_N);
+    SimulationInterpolater interp_Gamma(&tr_Gamma, 1.0);
+    SimulationInterpolater interp_beta_phi(&tr_beta_phi);
+    SimulationInterpolater interp_jsq(&tr_jsq);
+    SimulationInterpolater interp_Psi(&tr_Psi, 1.0);
+
+    // Interpolate Psi(z, r): given (z, r) returns (Psi)
+    SimulationInterpolater interp_rPsi(&tr_rPsi, 1.0);
+    // Points where to find values
+    size_t n_along = 1500;
+    size_t n_across = 200;
+    auto z_pc = linspace(0.0, 1.5, 1501);
+    auto r_pc = linspace(0.0, 0.2, 201);
+    auto psi = linspace(0.0, 1.0, 201);
+
+    std::vector<std::vector<double>> B_p, B_phi, N, Gamma, beta_phi, jsq, Psi;
+    B_p.resize(n_along);
+    B_phi.resize(n_along);
+    N.resize(n_along);
+    Gamma.resize(n_along);
+    beta_phi.resize(n_along);
+    jsq.resize(n_along);
+    Psi.resize(n_along);
+    for(size_t i=0; i < n_along; i++) {
+        B_p[i].resize(n_across);
+        B_phi[i].resize(n_across);
+        N[i].resize(n_across);
+        Gamma[i].resize(n_across);
+        beta_phi[i].resize(n_across);
+        jsq[i].resize(n_across);
+        Psi[i].resize(n_across);
+        for(size_t j=0; j < n_across; j++) {
+            // Point in physical space
+            Vector2d pos = {r_pc[j],z_pc[i]};
+            // Point in (z, Psi) space
+            Vector2d pos_psi = {interp_rPsi.interpolated_value(pos), z_pc[i]};
+
+            // Find interpolated in (z, Psi) space values
+            B_p[i][j] = interp_B_p.interpolated_value(pos_psi);
+            B_phi[i][j] = interp_B_phi.interpolated_value(pos_psi);
+            N[i][j] = interp_N.interpolated_value(pos_psi);
+            Gamma[i][j] = interp_Gamma.interpolated_value(pos_psi);
+            beta_phi[i][j] = interp_beta_phi.interpolated_value(pos_psi);
+            jsq[i][j] = interp_jsq.interpolated_value(pos_psi);
+            Psi[i][j] = interp_Psi.interpolated_value(pos_psi);
+        }
+    }
+
+    std::fstream fs;
+
+    fs.open(mhd_run_name + "_B_p_psi_interpolated.txt", std::ios::out | std::ios::app);
+    if (fs.is_open()) {
+        write_2dvector(fs, B_p);
+        fs.close();
+    }
+
+    fs.open(mhd_run_name + "_B_phi_psi_interpolated.txt", std::ios::out | std::ios::app);
+    if (fs.is_open()) {
+        write_2dvector(fs, B_phi);
+        fs.close();
+    }
+
+    fs.open(mhd_run_name + "_N_psi_interpolated.txt", std::ios::out | std::ios::app);
+    if (fs.is_open()) {
+        write_2dvector(fs, N);
+        fs.close();
+    }
+
+    fs.open(mhd_run_name + "_Gamma_psi_interpolated.txt", std::ios::out | std::ios::app);
+    if (fs.is_open()) {
+        write_2dvector(fs, Gamma);
+        fs.close();
+    }
+
+    fs.open(mhd_run_name + "_beta_phi_psi_interpolated.txt", std::ios::out | std::ios::app);
+    if (fs.is_open()) {
+        write_2dvector(fs, beta_phi);
+        fs.close();
+    }
+
+    fs.open(mhd_run_name + "_jsq_psi_interpolated.txt", std::ios::out | std::ios::app);
+    if (fs.is_open()) {
+        write_2dvector(fs, jsq);
+        fs.close();
+    }
+
+    fs.open(mhd_run_name + "_Psi_psi_interpolated.txt", std::ios::out | std::ios::app);
+    if (fs.is_open()) {
+        write_2dvector(fs, Psi);
+        fs.close();
+    }
+}
+
+
+void run_on_simulations(const std::string& mhd_run_name, double n_scale, double gamma_min, bool anisotropic_s) {
 
     auto t1 = Clock::now();
     std::clock_t start;
@@ -257,6 +248,7 @@ void run_on_simulations() {
     // Observed frequencies in GHz
     //std::vector<double> nu_observed_ghz{15.4, 12.1, 8.1};
     std::vector<double> nu_observed_ghz{15.4, 8.1};
+//    std::vector<double> nu_observed_ghz{15.4};
     // Frequencies in the BH frame in Hz
     std::vector<double> nu_bh;
     for(auto nu_obs_ghz : nu_observed_ghz) {
@@ -305,15 +297,27 @@ void run_on_simulations() {
 //    vbfields.push_back(&bfield);
 
 
-
+    // FIXME: Need to check that the number density of NT particles not to exceed the number density of cold particles!
     // Setting N-field using simulations ===============================================================================
     Delaunay_triangulation tr_n;
-//    create_triangulation(mhd_run_name + "_n_plasma_field.txt", &tr_n);
-    // FIXME: Does jsq decline along the jet? Seems that spine is almost constant!
+
+    // Number of emitting particles ~ number of cold particles
+    // In this case n_scale must be in [0, 1]
+//    create_triangulation(mhd_run_name + "_n_plasma_field_psi.txt", &tr_n);
+
+    // Number of emitting particles ~ j_plasma^2
     create_triangulation(mhd_run_name + "_jsq_plasma_field_psi.txt", &tr_n);
-    SimulationNField nfield(&tr_n, false, 2.5, 100.0, false, 1e+09);
-//    std::vector<NField*> nfields;
-//    nfields.push_back(&nfield);
+
+//    // Number of emitting particles ~ B_plasma^2
+//    // In this case n_scale must be in [0, 1].
+//    // u_e = n_nt * mc^2 * (s-1)/(s-2) * gamma_min = B^2/(8pi)
+//    double s = 2.5;
+//    // scale coefficient from B^2 to n_nt
+//    double n_nt_Bsq = (s - 2)/(s - 1)/(8*M_PI*m_e*c*c*gamma_min);
+//    n_scale *= n_nt_Bsq;
+//    create_triangulation(mhd_run_name + "_Bsq_plasma_field_psi.txt", &tr_n);
+
+    SimulationNField nfield(&tr_n, true, 2.5, gamma_min, anisotropic_s, n_scale);
 
     // Setting V-field using simulations ===============================================================================
     Delaunay_triangulation tr_Gamma;
@@ -325,6 +329,7 @@ void run_on_simulations() {
     Jet bkjet(&geometry, &interp_Psi, &vfield, &bfield, &nfield);
 
     // FIXME: Put inside frequency loop for dep. on frequency
+    // FIXME: Make coarser grid for scale estimation
     // Setting parameters of pixels and image ==========================================================================
     // These are OK for uniform pixel
 //    int number_of_pixels_along = 600;
@@ -424,21 +429,21 @@ void run_on_simulations() {
 
             std::string file_tau, file_tau_fr, file_i, file_q, file_u, file_v, file_l;
             if(jet_side) {
-                file_tau = "jet_image_tau_" + freq_name + ".txt";
-                file_tau_fr = "jet_image_taufr_" + freq_name + ".txt";
-                file_i = "jet_image_i_" + freq_name + ".txt";
-                file_q = "jet_image_q_" + freq_name + ".txt";
-                file_u = "jet_image_u_" + freq_name + ".txt";
-                file_v = "jet_image_v_" + freq_name + ".txt";
-                file_l = "jet_image_l_" + freq_name + ".txt";
+                file_tau = mhd_run_name + "_jet_image_tau_" + freq_name + ".txt";
+                file_tau_fr = mhd_run_name + "_jet_image_taufr_" + freq_name + ".txt";
+                file_i = mhd_run_name + "_jet_image_i_" + freq_name + ".txt";
+                file_q = mhd_run_name + "_jet_image_q_" + freq_name + ".txt";
+                file_u = mhd_run_name + "_jet_image_u_" + freq_name + ".txt";
+                file_v = mhd_run_name + "_jet_image_v_" + freq_name + ".txt";
+                file_l = mhd_run_name + "_jet_image_l_" + freq_name + ".txt";
             } else {
-                file_tau = "cjet_image_tau_" + freq_name + ".txt";
-                file_tau_fr = "cjet_image_taufr_" + freq_name + ".txt";
-                file_i = "cjet_image_i_" + freq_name + ".txt";
-                file_q = "cjet_image_q_" + freq_name + ".txt";
-                file_u = "cjet_image_u_" + freq_name + ".txt";
-                file_v = "cjet_image_v_" + freq_name + ".txt";
-                file_l = "cjet_image_l_" + freq_name + ".txt";
+                file_tau = mhd_run_name + "_cjet_image_tau_" + freq_name + ".txt";
+                file_tau_fr = mhd_run_name + "_cjet_image_taufr_" + freq_name + ".txt";
+                file_i = mhd_run_name + "_cjet_image_i_" + freq_name + ".txt";
+                file_q = mhd_run_name + "_cjet_image_q_" + freq_name + ".txt";
+                file_u = mhd_run_name + "_cjet_image_u_" + freq_name + ".txt";
+                file_v = mhd_run_name + "_cjet_image_v_" + freq_name + ".txt";
+                file_l = mhd_run_name + "_cjet_image_l_" + freq_name + ".txt";
             }
 
             // Remove old file
@@ -534,9 +539,23 @@ void run_on_simulations() {
 }
 
 
-int main() {
-    run_on_simulations();
-//    check_interpolations();
-//    check_psi_interpolations();
+int main(int argc, char *argv[]) {
+    if(argc != 5){
+        std::cout << argc << "\n";
+        std::cout << "Supply MHD code, density scale factor > 0, 1 <= gamma_min, bool anisotropic_s\n" << "\n";
+        return 1;
+    }
+    else {
+        std::cout << "Doing radiation transport for MHD code " << argv[1] << "\n";
+        double n_scale = atof(argv[2]);
+        double gamma_min = atof(argv[3]);
+
+        bool anisotropic_s;
+        std::istringstream is(argv[4]);
+        is >> std::boolalpha >> anisotropic_s;
+        run_on_simulations(argv[1], n_scale, gamma_min, anisotropic_s);
+    }
+//    check_interpolations("psi10");
+//    check_psi_interpolations("psi10");
     return 0;
 }

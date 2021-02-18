@@ -86,12 +86,13 @@ double PowerLawNField::get_s(const Vector3d &point) const {
 
 double PowerLawNField::get_s(Vector3d &b, Vector3d &n_los) const {
     double s_along = 2;
-    double s_across = 4;
+    double s_across = 2.5;
     double cos_theta = abs(b.dot(n_los)/b.norm());
+//    std::cout << "s = " << s_along*cos_theta + s_across*(1-cos_theta) << "\n";
     return s_along*cos_theta + s_across*(1-cos_theta);
 }
 
-double PowerLawNField::k_i(Vector3d &b, Vector3d &n_los, double nu, double n) const {
+double PowerLawNField::k_i(Vector3d &b, Vector3d &n_los, double nu, double n_nt) const {
     double factor_ki;
     double s;
     if (changing_s_) {
@@ -103,36 +104,36 @@ double PowerLawNField::k_i(Vector3d &b, Vector3d &n_los, double nu, double n) co
     }
     double nu_min_ = nu_min(gamma_min_, b, n_los);
     if(nu > nu_min_) {
-        return k_0(b, n_los, nu, n) * pow(nu_b(b, n_los)/nu, s/2.) * factor_ki;
+        return k_0(b, n_los, nu, n_nt, s, gamma_min_) * pow(nu_b(b, n_los)/nu, s/2.) * factor_ki;
 //        return k_0(b, n_los, nu, n*(s-1)*pow(gamma_min_, s-1)) * pow(nu_b(b, n_los)/nu, s/2.) * factor_ki;
     } else {
-        return k_0(b, n_los, nu_min_, n) * pow(nu_b(b, n_los)/nu_min_, s/2.) * factor_ki * pow(nu/nu_min_, -5./3.);
+        return k_0(b, n_los, nu_min_, n_nt, s, gamma_min_) * pow(nu_b(b, n_los)/nu_min_, s/2.) * factor_ki * pow(nu/nu_min_, -5./3.);
 //        return k_0(b, n_los, nu_min_, n*(s-1)*pow(gamma_min_, s-1)) * pow(nu_b(b, n_los)/nu_min_, s/2.) * factor_ki * pow(nu/nu_min_, -5./3.);
     }
 }
 
-double PowerLawNField::k_i(double b, Vector3d &n_los, double nu, double n) const {
+double PowerLawNField::k_i(double b, Vector3d &n_los, double nu, double n_nt) const {
     //double factor = (pow(3., (s_+1.)/2.)/4.)*tgamma(s_/4.+11./6.)*tgamma(s_/4.+1./6.);
     //double rnd_factor = sqrt(pi/4.)*tgamma((6.+s_)/4.)/tgamma((8.+s_)/4.);
     double factor = factor_ki_*factor_ki_rnd_;
-    return k_0(b, n_los, nu, n) * pow(nu_b(b)/nu, s_/2.) * factor;
+    return k_0(b, n_los, nu, n_nt, s_, gamma_min_) * pow(nu_b(b)/nu, s_/2.) * factor;
 }
 
-double PowerLawNField::k_q(Vector3d &b, Vector3d &n_los, double nu, double n) const {
+double PowerLawNField::k_q(Vector3d &b, Vector3d &n_los, double nu, double n_nt) const {
     double s;
     if (changing_s_) {
         s = get_s(b, n_los);
     } else {
         s = s_;
     }
-    return (s+2.)/(s+10./3)*k_i(b, n_los, nu, n);
+    return (s+2.)/(s+10./3)*k_i(b, n_los, nu, n_nt);
 }
 
-double PowerLawNField::k_u(Vector3d &b, Vector3d &n_los, double nu, double n) const {
+double PowerLawNField::k_u(Vector3d &b, Vector3d &n_los, double nu, double n_nt) const {
     return 0;
 }
 
-double PowerLawNField::k_v(Vector3d &b, Vector3d &n_los, double nu, double n) const {
+double PowerLawNField::k_v(Vector3d &b, Vector3d &n_los, double nu, double n_nt) const {
 
     double factor_kv;
     double s;
@@ -152,13 +153,13 @@ double PowerLawNField::k_v(Vector3d &b, Vector3d &n_los, double nu, double n) co
     //double factor = pow(3., s_/2.)*(s_+3.)*(s_+2.)/(4.*(s_+1.))*tgamma(s_/4.+11./12.)*tgamma(s_/4.+7./12.);
     double nu_min_ = nu_min(gamma_min_, b, n_los);
     if(nu > nu_min_) {
-        return -k_0_value(b, nu, n)*cos_theta*pow(nu_b(b, n_los)/nu, (s+1.)/2.) * factor_kv;
+        return -k_0_value(b, nu, n_nt, s, gamma_min_)*cos_theta*pow(nu_b(b, n_los)/nu, (s+1.)/2.) * factor_kv;
     } else {
-        return -k_0_value(b, nu_min_, n)*cos_theta*pow(nu_b(b, n_los)/nu_min_, (s+1.)/2.) * factor_kv * pow(nu/nu_min_, -5./3.);
+        return -k_0_value(b, nu_min_, n_nt, s, gamma_min_)*cos_theta*pow(nu_b(b, n_los)/nu_min_, (s+1.)/2.) * factor_kv * pow(nu/nu_min_, -5./3.);
     }
 }
 
-double PowerLawNField::k_F(Vector3d &b, Vector3d &n_los, double nu, double n) const {
+double PowerLawNField::k_F(Vector3d &b, Vector3d &n_los, double nu, double n_nt) const {
     double factor_kf;
     double s;
     if (changing_s_) {
@@ -172,24 +173,24 @@ double PowerLawNField::k_F(Vector3d &b, Vector3d &n_los, double nu, double n) co
         factor_kf = factor_kf_;
     }
     //return (s_+2.)*log(gamma_min_)/((s_+1.)*pow(gamma_min_, s_+1.))*k_F_c(b, n_los, nu, n);
-    return factor_kf * k_F_c(b, n_los, nu, n);
+    return factor_kf * k_F_c(b, n_los, nu, n_nt);
 }
 
-double PowerLawNField::k_C(Vector3d &b, Vector3d &n_los, double nu, double n) const {
+double PowerLawNField::k_C(Vector3d &b, Vector3d &n_los, double nu, double n_nt) const {
     double s;
     if (changing_s_) {
         s = get_s(b, n_los);
     } else {
         s = s_;
     }
-    return (2./(s-2.))*(pow(gamma_min_, 2.-s) - pow(nu_b(b, n_los)/nu, (s-2.)/2.))*k_C_c(b, n_los, nu, n);
+    return (2./(s-2.))*(pow(gamma_min_, 2.-s) - pow(nu_b(b, n_los)/nu, (s-2.)/2.))*k_C_c(b, n_los, nu, n_nt);
 }
 
-double PowerLawNField::h_Q(Vector3d &b, Vector3d &n_los, double nu, double n) const {
+double PowerLawNField::h_Q(Vector3d &b, Vector3d &n_los, double nu, double n_nt) const {
     return 0;
 }
 
-double PowerLawNField::eta_i(Vector3d &b, Vector3d &n_los, double nu, double n) const {
+double PowerLawNField::eta_i(Vector3d &b, Vector3d &n_los, double nu, double n_nt) const {
     //double factor = pow(3., s_/2.)/(2.*(s_+1))*tgamma(s_/4.+19./12.)*tgamma(s_/4.-1./12.);
 
     double factor_etai;
@@ -204,36 +205,36 @@ double PowerLawNField::eta_i(Vector3d &b, Vector3d &n_los, double nu, double n) 
 
     double nu_min_ = nu_min(gamma_min_, b, n_los);
     if(nu > nu_min_) {
-        return eta_0(b, n_los, n) * pow(nu_b(b, n_los)/nu, (s-1.)/2.) * factor_etai;
+        return eta_0(b, n_los, n_nt, s, gamma_min_) * pow(nu_b(b, n_los)/nu, (s-1.)/2.) * factor_etai;
 //        return eta_0(b, n_los, n*(s-1)*pow(gamma_min_, s-1)) * pow(nu_b(b, n_los)/nu, (s-1.)/2.) * factor_etai;
     } else {
-        return eta_0(b, n_los, n) * pow(nu_b(b, n_los)/nu_min_, (s-1.)/2.) * factor_etai * pow(nu/nu_min_, 1./3.);
+        return eta_0(b, n_los, n_nt, s, gamma_min_) * pow(nu_b(b, n_los)/nu_min_, (s-1.)/2.) * factor_etai * pow(nu/nu_min_, 1./3.);
 //        return eta_0(b, n_los, n*(s-1)*pow(gamma_min_, s-1)) * pow(nu_b(b, n_los)/nu_min_, (s-1.)/2.) * factor_etai * pow(nu/nu_min_, 1./3.);
     }
 }
 
-double PowerLawNField::eta_i(double b, Vector3d &n_los, double nu, double n) const {
+double PowerLawNField::eta_i(double b, Vector3d &n_los, double nu, double n_nt) const {
     //double factor = pow(3., s_/2.)/(2.*(s_+1))*tgamma(s_/4.+19./12.)*tgamma(s_/4.-1./12.);
     //double rnd_factor = sqrt(pi/4.)*tgamma((5.+s_)/4.)/tgamma((7.+s_)/4.);
     double factor = factor_etai_ * factor_etai_rnd_;
-    return eta_0(b, n_los, n) * pow(nu_b(b)/nu, (s_-1.)/2.) * factor;
+    return eta_0(b, n_los, n_nt, s_, gamma_min_) * pow(nu_b(b)/nu, (s_-1.)/2.) * factor;
 }
 
-double PowerLawNField::eta_q(Vector3d &b, Vector3d &n_los, double nu, double n) const {
+double PowerLawNField::eta_q(Vector3d &b, Vector3d &n_los, double nu, double n_nt) const {
     double s;
     if (changing_s_) {
         s = get_s(b, n_los);
     } else {
         s = s_;
     }
-    return (s+1.0)/(s+7./3.)*eta_i(b, n_los, nu, n);
+    return (s+1.0)/(s+7./3.)*eta_i(b, n_los, nu, n_nt);
 }
 
-double PowerLawNField::eta_u(Vector3d &b, Vector3d &n_los, double nu, double n) const {
+double PowerLawNField::eta_u(Vector3d &b, Vector3d &n_los, double nu, double n_nt) const {
     return 0;
 }
 
-double PowerLawNField::eta_v(Vector3d &b, Vector3d &n_los, double nu, double n) const {
+double PowerLawNField::eta_v(Vector3d &b, Vector3d &n_los, double nu, double n_nt) const {
 
     double factor_etav;
     double s;
@@ -254,9 +255,9 @@ double PowerLawNField::eta_v(Vector3d &b, Vector3d &n_los, double nu, double n) 
 
     double nu_min_ = nu_min(gamma_min_, b, n_los);
     if(nu > nu_min_) {
-        return -eta_0_value(b, n)*cos_theta*pow(nu_b(b, n_los)/nu, s/2.) * factor_etav;
+        return -eta_0_value(b, n_nt, s, gamma_min_)*cos_theta*pow(nu_b(b, n_los)/nu, s/2.) * factor_etav;
     } else {
-        return -eta_0_value(b, n)*cos_theta*pow(nu_b(b, n_los)/nu_min_, s/2.) * factor_etav * pow(nu/nu_min_, 1./3.);
+        return -eta_0_value(b, n_nt, s, gamma_min_)*cos_theta*pow(nu_b(b, n_los)/nu_min_, s/2.) * factor_etav * pow(nu/nu_min_, 1./3.);
     }
 }
 

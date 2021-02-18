@@ -238,8 +238,8 @@ void Observation::integrate_faraday_rotation_depth_adaptive(std::list<Intersecti
 
 void Observation::observe_single_pixel(Ray &ray, Pixel &pxl,  double tau_min, double tau_max, int n, double dt_max,
                                        double nu, string polarization) {
-    auto ij = pxl.getij();
-    std::cout << "Observing pixel " << ij.first << ", " << ij.second << "\n";
+//    auto ij = pxl.getij();
+//    std::cout << "Observing pixel " << ij.first << ", " << ij.second << "\n";
     auto ray_direction = ray.direction();
     std::list<Intersection> list_intersect = jet->hit(ray);
     if (!list_intersect.empty()) {

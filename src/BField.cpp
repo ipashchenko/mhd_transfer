@@ -73,7 +73,10 @@ Vector3d SimulationBField::_bf(const Vector3d &point, double psi) const {
     double y = point[1];
     double z = point[2];
     double phi = atan2(y, x);
-
+    // As atan2 returns [-pi, pi], put this to [0, 2pi]
+    if(phi < 0){
+        phi += 2.0*M_PI;
+    }
     double interpolated_value_p = interp_p_.interpolated_value({psi, z/pc});
     double interpolated_value_fi = interp_fi_.interpolated_value({psi, z/pc});
     return Vector3d{-sin(phi) * interpolated_value_fi, cos(phi) * interpolated_value_fi, interpolated_value_p};

@@ -525,31 +525,44 @@ def plot_psi_interpolated(mhd_code):
     plt.matshow(np.log10(jsq_m*boost)[::,:125].T[::-1, ::], cmap="hsv", aspect="auto");plt.colorbar();plt.show()
 
 
+def plot_images(mhd_code, rt_code, txt_files_dir="/home/ilya/github/mhd_transfer/Release", save_dir=None,
+                n_along=500, n_across=100, lg_pixel_size_mas_min=np.log10(0.01), lg_pixel_size_mas_max=np.log10(0.1)):
+    freq_ghz_high = 15.4
+    freq_ghz_low = 8.1
+    i_image_low = np.loadtxt("{}/{}_jet_image_{}_{}.txt".format(txt_files_dir, mhd_code, "i", freq_ghz_low))
+    i_image_high = np.loadtxt("{}/{}_jet_image_{}_{}.txt".format(txt_files_dir, mhd_code, "i", freq_ghz_high))
+    alpha_image = np.log(i_image_low/i_image_high)/np.log(freq_ghz_low/freq_ghz_high)
+
+    jm = JetImage(z=0.00436, n_along=n_along, n_across=n_across,
+                  lg_pixel_size_mas_min=lg_pixel_size_mas_min,
+                  lg_pixel_size_mas_max=lg_pixel_size_mas_max, jet_side=True)
+    jm.load_image_stokes("I", "{}/{}_jet_image_{}_{}.txt".format(txt_files_dir, mhd_code, stk.lower(), freq_ghz_high))
+    jm.load_image_alpha(alpha_image)
+    fig = jm.plot(log=True, Nan2zero=True, zoom_fr=1.0, axis_units="mas", figsize=(20, 7.5))
+    fig.savefig(os.path.join(save_dir, "I_freq_{}_GHz_mhd_{}_rt_{}.png".format(freq_ghz_high, mhd_code, rt_code)),
+                bbox_inches="tight", dpi=300)
+    plt.close(fig)
+    fig = jm.plot_alpha(figsize=(20, 7.5), alpha_min=-1., alpha_max=0.0, count_levels_from_image_min=True)
+    fig.savefig(os.path.join(save_dir, "alpha_mhd_{}_rt_{}.png".format(mhd_code, rt_code)),
+                bbox_inches="tight", dpi=300)
+    plt.close(fig)
+
 
 if __name__ == "__main__":
 
     # This applies to my local work in CLion. Change it to ``Release`` (or whatever) if necessary.
     jetpol_run_directory = "Release"
-    stokes = ("I",)
+    n_along = 500
+    n_across = 100
+    lg_pixel_size_mas_min = np.log10(0.01)
+    lg_pixel_size_mas_max = np.log10(0.1)
     freq_ghz_high = 15.4
     freq_ghz_low = 8.1
-    i_image_low = np.loadtxt("{}/jet_image_{}_{}.txt".format(jetpol_run_directory, "i", freq_ghz_low))
-    i_image_high = np.loadtxt("{}/jet_image_{}_{}.txt".format(jetpol_run_directory, "i", freq_ghz_high))
-    alpha_image = np.log(i_image_low/i_image_high)/np.log(freq_ghz_low/freq_ghz_high)
+    mhd_code = "psi10"
+    rt_code = None
 
-    jm = JetImage(z=0.00436, n_along=500, n_across=100,
-                  lg_pixel_size_mas_min=np.log10(0.01),
-                  lg_pixel_size_mas_max=np.log10(0.1), jet_side=True)
-    [jm.load_image_stokes(stk, "{}/jet_image_{}_{}.txt".format(jetpol_run_directory, stk.lower(), freq_ghz_high)) for stk in stokes]
-    jm.load_image_alpha(alpha_image)
-    fig = jm.plot(log=True, Nan2zero=True, zoom_fr=1.0, axis_units="mas", figsize=(20, 7.5))
-    # fig.savefig("I_freq_{}_GHz_gamma_min_100_jsq_fine.png".format(freq_ghz_high), bbox_inches="tight", dpi=300)
-    plt.show()
-    fig = jm.plot_contours(zoom_fr=1.0, loglevs=True, contour_cmap="copper", count_levels_from_image_min=True)
-    plt.show()
-    fig = jm.plot_alpha(figsize=(20, 7.5), alpha_min=-0.8, alpha_max=0.5, count_levels_from_image_min=True)
-    # fig.savefig("alpha_gamma_min_100_jsq_fine.png", bbox_inches="tight", dpi=300)
-    plt.show()
+    plot_images(mhd_code=mhd_code, rt_code=rt_code)
+
     import sys; sys.exit(0)
 
 

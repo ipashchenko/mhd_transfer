@@ -12,7 +12,6 @@
 
 class Jet {
     public:
-        // Need VectorBField for simulations output or polarization
         Jet(BaseGeometry* geo, SimulationInterpolater* PsiInterpolater, VField* vfield, VectorBField* bField, NField* nField);
 
         // Get all coefficients
@@ -51,7 +50,6 @@ class Jet {
         VectorBField* bfield_;
         NField* nfield_;
 };
-
 
 
 #endif //MHD_TRANSFER_JET_H

@@ -52,6 +52,24 @@ double nu_min(double gamma_min, Vector3d &b, Vector3d &n_los);
 
 double nu_min(double gamma_min, double b);
 
+// Here in coefficients n is the density of all non-thermal particles, thus we need s and gamma_min to convert to
+// N(gamma) using relation: N(gamma) d(gamma) = n_nt * (s-1) * gamma_min^{s-1} d(gamma)
+// For random B-field
+double k_0(double b, Vector3d &n_los, double nu, double n_nt, double s, double gamma_min);
+
+// For vector B-field
+double k_0(Vector3d &b, Vector3d &n_los, double nu, double n_nt, double s, double gamma_min);
+
+double k_0_value(Vector3d &b, double nu, double n_nt, double s, double gamma_min);
+
+// For random B-field
+double eta_0(double b, Vector3d &n_los, double n_nt, double s, double gamma_min);
+
+// For vector B-field
+double eta_0(Vector3d &b, Vector3d &n_los, double n_nt, double s, double gamma_min);
+
+double eta_0_value(Vector3d &b, double n_nt, double s, double gamma_min);
+
 // Lorentz factor for the velocity ``v``
 double getG(Vector3d &v);
 
@@ -77,7 +95,20 @@ Vector3d q(Vector3d &b_hat, Vector3d &v_beta, Vector3d &n_hat);
 
 Vector3d e_hat(Vector3d &b_hat, Vector3d &v_beta, Vector3d &n_hat);
 
-// This uses adaptive integration as the Astropy version with the same tolerances.
+
+class Ctd {
+public:
+	//From astropy.cosmology.WMAP9
+	Ctd(double z, double H0=69.32, double omega_M=0.2865, double omega_V=0.7134130719051658,
+			double gamma_nu=8.69280948342326e-05);
+	void operator() (const double &x, double &dxdt, const double t);
+	double z;
+	double H0;
+	double omega_M;
+	double omega_V;
+	double gamma_nu;
+};
+
 double comoving_transfer_distance2(double z, double H0=69.32, double omega_M=0.2865, double omega_V=0.7134130719051658, double gamma_nu=8.69280948342326e-05);
 
 // Return scale factor that converts from parsecs to milliarcseconds

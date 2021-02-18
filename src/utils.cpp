@@ -32,6 +32,36 @@ double nu_b_value(Vector3d &b) {
 	return q_e*b.norm()/(2.*pi*m_e*c);
 }
 
+double k_0(Vector3d &b, Vector3d &n_los, double nu, double n_nt, double s, double gamma_min) {
+    double n = n_nt*(s-1)*pow(gamma_min, s-1);
+    return pi*nu_p(n)*nu_p(n)*nu_b(b, n_los)/(c*nu*nu);
+}
+
+double k_0(double b, Vector3d &n_los, double nu, double n_nt, double s, double gamma_min) {
+    double n = n_nt*(s-1)*pow(gamma_min, s-1);
+    return pi*nu_p(n)*nu_p(n)*nu_b(b)/(c*nu*nu);
+}
+
+double k_0_value(Vector3d &b, double nu, double n_nt, double s, double gamma_min) {
+    double n = n_nt*(s-1)*pow(gamma_min, s-1);
+    return pi*nu_p(n)*nu_p(n)*nu_b_value(b)/(c*nu*nu);
+}
+
+double eta_0(Vector3d &b, Vector3d &n_los, double n_nt, double s, double gamma_min) {
+    double n = n_nt*(s-1)*pow(gamma_min, s-1);
+    return pi*nu_p(n)*nu_p(n)*nu_b(b, n_los)*m_e/c;
+}
+
+double eta_0(double b, Vector3d &n_los, double n_nt, double s, double gamma_min) {
+    double n = n_nt*(s-1)*pow(gamma_min, s-1);
+    return pi*nu_p(n)*nu_p(n)*nu_b(b)*m_e/c;
+}
+
+double eta_0_value(Vector3d &b, double n_nt, double s, double gamma_min) {
+    double n = n_nt*(s-1)*pow(gamma_min, s-1);
+    return pi*nu_p(n)*nu_p(n)*nu_b_value(b)*m_e/c;
+}
+
 double getG(Vector3d &v) {
     Vector3d beta = v/c;
     return sqrt(1./(1.- beta.squaredNorm()));
@@ -132,6 +162,14 @@ write_2dvector(std::ostream &os, std::vector<std::vector<double>> &v,
 	}
 	return os;
 }
+
+Ctd::Ctd(double z, double H0, double omega_M, double omega_V, double gamma_nu) : z(z), H0(H0), omega_M(omega_M), omega_V(omega_V), gamma_nu(gamma_nu) {}
+
+void Ctd::operator()(const double &x, double &dxdt, const double t) {
+	dxdt = pow((omega_M + (1.+t)*gamma_nu)*(1.+t)*(1.+t)*(1.+t)+omega_V, -0.5);
+	//dxdt = pow(omega_M*(1.+t*t*t)+omega_V, -0.5);
+};
+
 
 void read_from_txt(const std::string& fntxt, std::vector< std::vector<double> >& properties) {
     std::ifstream infile(fntxt);
