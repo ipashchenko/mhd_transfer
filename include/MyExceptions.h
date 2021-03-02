@@ -14,6 +14,16 @@ class AbsentDataFile : public std::exception {
 };
 
 
+class NotImplmentedParticlesHeating : public std::exception {
+        std::string msg;
+    public:
+        NotImplmentedParticlesHeating(const std::string& model) : msg(std::string("Not implemented particles heating model: ") + model) {}
+        const char * what () const noexcept override {
+            return msg.c_str();
+        }
+};
+
+
 class PhysicalException : public std::exception {
         std::string msg;
     public:

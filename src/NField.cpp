@@ -327,3 +327,105 @@ double SimulationNField::_nf(const Vector3d &point, double psi) const {
     double z = point[2];
     return scale_factor_*interp_.interpolated_value({psi, z/pc});
 };
+
+
+ConstrainedSimulationNField::ConstrainedSimulationNField(Delaunay_triangulation *tr_nt,
+                                                         Delaunay_triangulation *tr_cold,
+                                                         bool in_plasma_frame, double s, double gamma_min,
+                                                         bool changing_s, double scale_factor_nt,
+                                                         double scale_factor_cold) :
+        PowerLawNField(in_plasma_frame, s, gamma_min, nullptr, "pairs", changing_s, 0.0),
+        interp_nt_(tr_nt),
+        interp_cold_(tr_cold),
+        scale_factor_nt_(scale_factor_nt),
+        scale_factor_cold_(scale_factor_cold) {}
+
+double ConstrainedSimulationNField::_nf(const Vector3d &point, double psi) const {
+    double z = point[2];
+
+    double n_cold = scale_factor_cold_*interp_cold_.interpolated_value({psi, z/pc});
+    double n_nt = scale_factor_nt_*interp_nt_.interpolated_value({psi, z/pc});
+    if(n_nt < n_cold) {
+        return n_nt;
+    }else {
+        return n_cold;
+    }
+};
+
+
+
+ConstrainedSigmaSimulationNField::ConstrainedSigmaSimulationNField(Delaunay_triangulation *tr_cold,
+                                                                   Delaunay_triangulation *tr_Bsq,
+                                                                   Delaunay_triangulation *tr_jsq,
+                                                                   std::string particles_heating_model,
+                                                                   bool in_plasma_frame, double s, double gamma_min,
+                                                                   bool changing_s, double scale_factor_nt,
+                                                                   double max_frac_cold) :
+        PowerLawNField(in_plasma_frame, s, gamma_min, nullptr, "pairs", changing_s, 0.0),
+        interp_cold_(tr_cold),
+        interp_Bsq_(tr_Bsq),
+        interp_jsq_(tr_jsq),
+        particles_heating_model_(std::move(particles_heating_model)),
+        scale_factor_nt_(scale_factor_nt),
+        max_frac_cold_(max_frac_cold) {}
+
+double ConstrainedSigmaSimulationNField::_nf(const Vector3d &point, double psi) const {
+    double x = point[0];
+    double y = point[1];
+    double r_p = hypot(x, y)/pc;
+    double z = point[2];
+    double n_nt;
+
+    // Number of cold particles in plasma frame
+    double n_cold = interp_cold_.interpolated_value({psi, z/pc});
+    // Squared magnetic field in plasma frame
+    double Bsq = interp_Bsq_.interpolated_value({psi, z/pc});
+    // Local inverse sigma
+    double inv_sigma = 8.0*M_PI*n_cold*m_e*c*c/Bsq;
+//    if(1/inv_sigma > 1.0) {
+//        std::cout << "sigma = " << 1./inv_sigma << " at Psi = " << psi << "at z_pc = " << z/pc << "\n";
+//    }
+//    if(z/pc > 4.0) {
+//        std::cout << "z_pc = " << z/pc << " with sigma = " << 1./inv_sigma << "\n";
+//    }
+//    if(r_p < 0.01) {
+//        std::cout << "r_p = " << r_p << ", z = " << z/pc << " with sigma = " << 1./inv_sigma << "\n";
+//    }
+    // Suppression factor of Broderick+2010
+    double sigma_suppression_factor = 1./(1. + exp(inv_sigma));
+//    std::cout << "sigma suppression factor = " << sigma_suppression_factor << "\n";
+
+    // Maximum number of cold particles that can be heated
+    double n_cold_max = max_frac_cold_*n_cold;
+
+    if(particles_heating_model_ == "n"){
+        // Number of emitting particles ~ number of cold particles
+        // In this case ``scale_factor_nt_`` - efficiency of cold particles heating - must be in [0, 1]
+        n_nt = scale_factor_nt_*n_cold*sigma_suppression_factor;
+    }
+    else if(particles_heating_model_ == "bsq") {
+        // Number of emitting particles ~ B_plasma^2
+        // In this case ``scale_factor_nt_`` must be in [0, 1]. It is efficiency with which magnetic energy is converted
+        // into that of nonthermal particles.
+        // From the relation:
+        // u_e = n_nt * mc^2 * (s-1)/(s-2) * gamma_min = B^2/(8pi) * sigma_suppression_factor
+        // the scale coefficient from B^2 to n_nt is:
+        double n_nt_Bsq = sigma_suppression_factor*(s_ - 2)/(s_ - 1)/(8*M_PI*m_e*c*c*gamma_min_);
+        n_nt = scale_factor_nt_*n_nt_Bsq*Bsq;
+    }
+    else if(particles_heating_model_ == "jsq") {
+        // Number of emitting particles ~ j_plasma^2. ``scale_factor_nt_`` is arbitrary positive number.
+        n_nt = scale_factor_nt_*interp_jsq_.interpolated_value({psi, z/pc})*sigma_suppression_factor;
+    }
+    else {
+        throw NotImplmentedParticlesHeating(particles_heating_model_);
+    }
+
+    // Number of nonthermal particles can't be larger than some fraction (``max_frac_cold_``) of all cold particles
+    if(n_nt < n_cold_max) {
+        return n_nt;
+    }else {
+        std::cout << "Number of NT particles can't be larger than number of cold particles!" << std::endl;
+        return n_cold_max;
+    }
+};

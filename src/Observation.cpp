@@ -24,7 +24,7 @@ void Observation::run(int n, double tau_max, double dt_max, double tau_min, doub
 	vector<Ray>& rays = imagePlane->getRays();
 	omp_set_num_threads(4);
 	// Comment out for easy debug printing
-	#pragma omp parallel for schedule(dynamic) collapse(2) default(none) shared(image_size, rays, pixels, tau_min, tau_max, n, dt_max, nu, polarization)
+//	#pragma omp parallel for schedule(dynamic) collapse(2) default(none) shared(image_size, rays, pixels, tau_min, tau_max, n, dt_max, nu, polarization)
     for (unsigned long int j = 0; j < image_size.first; ++j) {
 	    // TODO: If one (doesn't?) need counter-jet side -- start from uncommenting this line:D
 	    // TODO: I thik cj is now handled differently!

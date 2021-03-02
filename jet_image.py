@@ -283,6 +283,9 @@ class JetImage(ABC):
         factor = factor.value
         image = self.image()/factor.T
         min_positive = np.min(image[image > 0])
+        from scipy.stats import scoreatpercentile
+        first_contour = scoreatpercentile(image[image > min_positive], 1)
+        print(first_contour)
         if log and Nan2zero:
             image[image == 0.0] = 1e-12
 
@@ -296,7 +299,8 @@ class JetImage(ABC):
         fig, axes = plt.subplots(1, 1, figsize=figsize)
         cmap = plt.get_cmap(cmap)
         if log:
-            norm = LogNorm(vmin=min_positive, vmax=image.max())
+            # norm = LogNorm(vmin=min_positive, vmax=image.max())
+            norm = LogNorm(vmin=first_contour, vmax=0.33*image.max())
         else:
             norm = None
 
@@ -479,19 +483,31 @@ def plot_interpolated(mhd_code):
     plt.matshow(np.log10(jsq_m*boost)[::,:125].T[::-1, ::], cmap="hsv", aspect="auto");plt.colorbar();plt.show()
 
 
-def plot_psi_interpolated(mhd_code):
+def plot_psi_interpolated(mhd_code, txt_dir='/home/ilya/github/mhd_transfer/Release'):
 
-    Psi = np.loadtxt("{}_Psi_psi_interpolated.txt".format(mhd_code))
+    Psi = np.loadtxt(os.path.join(txt_dir, "{}_Psi_psi_interpolated.txt".format(mhd_code)))
     Psi_m = np.ma.array(Psi, mask = Psi == 1)
     plt.matshow(Psi_m[::,:125].T[::-1, ::], cmap="hsv", aspect="auto");plt.colorbar();plt.show()
 
-    jsq = np.loadtxt("{}_jsq_psi_interpolated.txt".format(mhd_code))
+    jsq = np.loadtxt(os.path.join(txt_dir, "{}_jsq_psi_interpolated.txt".format(mhd_code)))
     jsq_m = np.ma.array(jsq, mask=jsq == 0)
     plt.matshow(np.log(jsq_m[::, :125].T[::-1, ::]), cmap="hsv", aspect="auto");plt.colorbar();plt.show()
 
-    bphi = np.loadtxt("{}_beta_phi_psi_interpolated.txt".format(mhd_code))
+    bphi = np.loadtxt(os.path.join(txt_dir, "{}_beta_phi_psi_interpolated.txt".format(mhd_code)))
     bphi_m = np.ma.array(bphi, mask = bphi == 0)
-    plt.matshow(bphi_m[::,:125].T[::-1, ::], cmap="hsv", aspect="auto");plt.colorbar();plt.show()
+    fig, axes = plt.subplots(1, 1)
+    im = axes.matshow(bphi_m[::, :].T[::-1, ::], cmap="hsv", aspect="auto", extent=[0, 1.5, 0, 0.2])
+    axes.set_xlabel("z, pc")
+    axes.set_ylabel("r, pc")
+    from mpl_toolkits.axes_grid1 import make_axes_locatable
+    divider = make_axes_locatable(axes)
+    cax = divider.append_axes("right", size="5%", pad=0.00)
+    cb = fig.colorbar(im, cax=cax)
+    cb.set_label(r"$\beta_{\phi}$, c")
+    # fig.savefig("beta_phi.png", bbox_inches="tight", dpi=300)
+    plt.show()
+
+
 
     Gamma = np.loadtxt("{}_Gamma_psi_interpolated.txt".format(mhd_code))
     Gamma_m = np.ma.array(Gamma, mask = Gamma == 1)
@@ -526,42 +542,67 @@ def plot_psi_interpolated(mhd_code):
 
 
 def plot_images(mhd_code, rt_code, txt_files_dir="/home/ilya/github/mhd_transfer/Release", save_dir=None,
-                n_along=500, n_across=100, lg_pixel_size_mas_min=np.log10(0.01), lg_pixel_size_mas_max=np.log10(0.1)):
-    freq_ghz_high = 15.4
-    freq_ghz_low = 8.1
-    i_image_low = np.loadtxt("{}/{}_jet_image_{}_{}.txt".format(txt_files_dir, mhd_code, "i", freq_ghz_low))
+                n_along=600, n_across=200, lg_pixel_size_mas_min=np.log10(0.01), lg_pixel_size_mas_max=np.log10(0.1),
+                freq_ghz_high=15.4, freq_ghz_low=None, cmap="magma"):
+    if save_dir is None:
+        save_dir = os.getcwd()
+
+    if freq_ghz_low:
+        i_image_low = np.loadtxt("{}/{}_jet_image_{}_{}.txt".format(txt_files_dir, mhd_code, "i", freq_ghz_low))
     i_image_high = np.loadtxt("{}/{}_jet_image_{}_{}.txt".format(txt_files_dir, mhd_code, "i", freq_ghz_high))
-    alpha_image = np.log(i_image_low/i_image_high)/np.log(freq_ghz_low/freq_ghz_high)
+    if freq_ghz_low:
+        alpha_image = np.log(i_image_low/i_image_high)/np.log(freq_ghz_low/freq_ghz_high)
 
     jm = JetImage(z=0.00436, n_along=n_along, n_across=n_across,
                   lg_pixel_size_mas_min=lg_pixel_size_mas_min,
                   lg_pixel_size_mas_max=lg_pixel_size_mas_max, jet_side=True)
-    jm.load_image_stokes("I", "{}/{}_jet_image_{}_{}.txt".format(txt_files_dir, mhd_code, stk.lower(), freq_ghz_high))
-    jm.load_image_alpha(alpha_image)
-    fig = jm.plot(log=True, Nan2zero=True, zoom_fr=1.0, axis_units="mas", figsize=(20, 7.5))
+    jm.load_image_stokes("I", "{}/{}_jet_image_i_{}.txt".format(txt_files_dir, mhd_code, freq_ghz_high))
+    if freq_ghz_low:
+        jm.load_image_alpha(alpha_image)
+    fig = jm.plot(log=True, Nan2zero=False, zoom_fr=1.0, axis_units="mas", figsize=(20, 7.5), cmap=cmap)
     fig.savefig(os.path.join(save_dir, "I_freq_{}_GHz_mhd_{}_rt_{}.png".format(freq_ghz_high, mhd_code, rt_code)),
                 bbox_inches="tight", dpi=300)
+    plt.show()
     plt.close(fig)
-    fig = jm.plot_alpha(figsize=(20, 7.5), alpha_min=-1., alpha_max=0.0, count_levels_from_image_min=True)
-    fig.savefig(os.path.join(save_dir, "alpha_mhd_{}_rt_{}.png".format(mhd_code, rt_code)),
-                bbox_inches="tight", dpi=300)
-    plt.close(fig)
+    if freq_ghz_low:
+        fig = jm.plot_alpha(figsize=(20, 7.5), alpha_min=-1., alpha_max=0.0, count_levels_from_image_min=True)
+        fig.savefig(os.path.join(save_dir, "alpha_mhd_{}_rt_{}.png".format(mhd_code, rt_code)),
+                    bbox_inches="tight", dpi=300)
+        plt.show()
+        plt.close(fig)
+
+
+def plot_raw(txt, label, savename, extent):
+    toplot = np.loadtxt(txt)
+    fig, axes = plt.subplots(1, 1)
+    im = axes.matshow(toplot, extent=extent, aspect="equal")
+    axes.set_xlabel(r"$z_{\rm obs}$, mas")
+    axes.set_ylabel(r"$r$, mas")
+    from mpl_toolkits.axes_grid1 import make_axes_locatable
+    divider = make_axes_locatable(axes)
+    cax = divider.append_axes("right", size="5%", pad=0.00)
+    cb = fig.colorbar(im, cax=cax)
+    cb.set_label(label)
+    fig.savefig(savename, bbox_inches="tight", dpi=300)
+    plt.show()
 
 
 if __name__ == "__main__":
 
     # This applies to my local work in CLion. Change it to ``Release`` (or whatever) if necessary.
     jetpol_run_directory = "Release"
-    n_along = 500
-    n_across = 100
-    lg_pixel_size_mas_min = np.log10(0.01)
-    lg_pixel_size_mas_max = np.log10(0.1)
-    freq_ghz_high = 15.4
-    freq_ghz_low = 8.1
-    mhd_code = "psi10"
-    rt_code = None
+    n_along = 600
+    n_across = 600
+    lg_pixel_size_mas_min = np.log10(0.003)
+    lg_pixel_size_mas_max = np.log10(0.003)
+    freq_ghz_high = 86
+    freq_ghz_low = None
+    mhd_code = "core"
+    rt_code = "n1"
 
-    plot_images(mhd_code=mhd_code, rt_code=rt_code)
+    plot_images(mhd_code=mhd_code, rt_code=rt_code, freq_ghz_high=freq_ghz_high, freq_ghz_low=freq_ghz_low,
+                n_along=n_along, n_across=n_across,
+                lg_pixel_size_mas_min=lg_pixel_size_mas_min, lg_pixel_size_mas_max=lg_pixel_size_mas_max)
 
     import sys; sys.exit(0)
 

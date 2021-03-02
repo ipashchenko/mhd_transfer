@@ -13,6 +13,7 @@
 #include <ctime>
 #include <chrono>
 #include "linspace.h"
+#include "MyExceptions.h"
 
 using Eigen::Vector3d;
 using Eigen::Matrix3Xd;
@@ -236,7 +237,8 @@ void check_psi_interpolations(const std::string& mhd_run_name) {
 }
 
 
-void run_on_simulations(const std::string& mhd_run_name, double n_scale, double gamma_min, bool anisotropic_s) {
+void run_on_simulations(const std::string& mhd_run_name, double n_scale, double gamma_min, bool anisotropic_s,
+                        const std::string& particles_heating_model) {
 
     auto t1 = Clock::now();
     std::clock_t start;
@@ -247,8 +249,9 @@ void run_on_simulations(const std::string& mhd_run_name, double n_scale, double 
 
     // Observed frequencies in GHz
     //std::vector<double> nu_observed_ghz{15.4, 12.1, 8.1};
-    std::vector<double> nu_observed_ghz{15.4, 8.1};
-//    std::vector<double> nu_observed_ghz{15.4};
+//    std::vector<double> nu_observed_ghz{15.4, 8.1};
+//    std::vector<double> nu_observed_ghz{86.0};
+    std::vector<double> nu_observed_ghz{15.4};
     // Frequencies in the BH frame in Hz
     std::vector<double> nu_bh;
     for(auto nu_obs_ghz : nu_observed_ghz) {
@@ -292,39 +295,69 @@ void run_on_simulations(const std::string& mhd_run_name, double n_scale, double 
     Delaunay_triangulation tr_fi;
     create_triangulation(mhd_run_name + "_B_p_field_psi.txt", &tr_p);
     create_triangulation(mhd_run_name + "_B_phi_field_psi.txt", &tr_fi);
-    SimulationBField bfield(&tr_p, &tr_fi, false);
+    SimulationBField bfield(&tr_Psi, &tr_p, &tr_fi, false);
 //    std::vector<VectorBField*> vbfields;
 //    vbfields.push_back(&bfield);
 
 
-    // FIXME: Need to check that the number density of NT particles not to exceed the number density of cold particles!
     // Setting N-field using simulations ===============================================================================
-    Delaunay_triangulation tr_n;
+//    Delaunay_triangulation tr_nt;
+    Delaunay_triangulation tr_ncold;
+    Delaunay_triangulation tr_Bsq;
+    Delaunay_triangulation tr_jsq;
 
-    // Number of emitting particles ~ number of cold particles
-    // In this case n_scale must be in [0, 1]
-//    create_triangulation(mhd_run_name + "_n_plasma_field_psi.txt", &tr_n);
+    create_triangulation(mhd_run_name + "_n_plasma_field_psi.txt", &tr_ncold);
+    create_triangulation(mhd_run_name + "_jsq_plasma_field_psi.txt", &tr_jsq);
+    create_triangulation(mhd_run_name + "_Bsq_plasma_field_psi.txt", &tr_Bsq);
 
-    // Number of emitting particles ~ j_plasma^2
-    create_triangulation(mhd_run_name + "_jsq_plasma_field_psi.txt", &tr_n);
 
-//    // Number of emitting particles ~ B_plasma^2
-//    // In this case n_scale must be in [0, 1].
-//    // u_e = n_nt * mc^2 * (s-1)/(s-2) * gamma_min = B^2/(8pi)
-//    double s = 2.5;
-//    // scale coefficient from B^2 to n_nt
-//    double n_nt_Bsq = (s - 2)/(s - 1)/(8*M_PI*m_e*c*c*gamma_min);
-//    n_scale *= n_nt_Bsq;
-//    create_triangulation(mhd_run_name + "_Bsq_plasma_field_psi.txt", &tr_n);
+//    if(particles_heating_model == "n"){
+//        // Number of emitting particles ~ number of cold particles
+//        // In this case n_scale must be in [0, 1]
+//        create_triangulation(mhd_run_name + "_n_plasma_field_psi.txt", &tr_nt);
+//    }
+//    else if(particles_heating_model == "jsq") {
+//        // Number of emitting particles ~ j_plasma^2
+//        create_triangulation(mhd_run_name + "_jsq_plasma_field_psi.txt", &tr_nt);
+//    }
+//    else if(particles_heating_model == "bsq") {
+//        // Number of emitting particles ~ B_plasma^2
+//        // In this case n_scale must be in [0, 1].
+//        // u_e = n_nt * mc^2 * (s-1)/(s-2) * gamma_min = B^2/(8pi)
+//        double s = 2.5;
+//        // scale coefficient from B^2 to n_nt
+//        double n_nt_Bsq = (s - 2)/(s - 1)/(8*M_PI*m_e*c*c*gamma_min);
+//        n_scale *= n_nt_Bsq;
+//        create_triangulation(mhd_run_name + "_Bsq_plasma_field_psi.txt", &tr_nt);
+//    } else {
+//        std::vector<string> implemented_heating_model_types{"bsq", "n", "jsq"};
+//        std::cout << "Implemented particles heating models are: " << "\n";
+//        for(const auto& s: implemented_heating_model_types){
+//            std::cout << s << "\n";
+//        }
+//        throw NotImplmentedParticlesHeating(particles_heating_model);
+//    }
 
-    SimulationNField nfield(&tr_n, true, 2.5, gamma_min, anisotropic_s, n_scale);
+    // Arbitrary heating model w/o any constrains on the NT particles number density
+//    SimulationNField nfield(&tr_nt, true, 2.5, gamma_min, anisotropic_s, n_scale);
+
+    // Heating model with constrain that number density of NT particles can not exceed some fraction of number density
+    // of the cold particles
+//    ConstrainedSimulationNField cnfield(&tr_nt, &tr_nt, true, 2.5, gamma_min, anisotropic_s, n_scale);
+
+    // Heating model with constrain that number density of NT particles can not exceed some fraction of number density
+    // of the cold particles AND heating efficiency is modulated by local magnetization as in Broderick+2010
+    double max_frac_cold = 0.1;
+    double s = 2.5;
+    ConstrainedSigmaSimulationNField nfield(&tr_ncold, &tr_Bsq, &tr_jsq, particles_heating_model, true,
+                                            s, gamma_min, anisotropic_s, n_scale, max_frac_cold);
 
     // Setting V-field using simulations ===============================================================================
     Delaunay_triangulation tr_Gamma;
     Delaunay_triangulation tr_beta_phi;
     create_triangulation(mhd_run_name + "_Gamma_field_psi.txt", &tr_Gamma);
     create_triangulation(mhd_run_name + "_beta_phi_field_psi.txt", &tr_beta_phi);
-    SimulationVField vfield(&tr_Gamma, &tr_beta_phi);
+    SimulationVField vfield(&tr_Psi, &tr_Gamma, &tr_beta_phi);
 
     Jet bkjet(&geometry, &interp_Psi, &vfield, &bfield, &nfield);
 
@@ -338,10 +371,15 @@ void run_on_simulations(const std::string& mhd_run_name, double n_scale, double 
 //    double pixel_size_mas_stop = 0.025;
     // From 0.001 pc/pixel - that is for z=0.02 pc
     // Non-uniform pixel from ``pixel_size_mas_start`` (near BH) to ``pixel_size_mas_stop`` (image edges)
-    int number_of_pixels_along = 500;
-    int number_of_pixels_across = 100;
+    int number_of_pixels_along = 600;
+    int number_of_pixels_across = 200;
     double pixel_size_mas_start = 0.01;
     double pixel_size_mas_stop = 0.1;
+    // 86 Ghz
+//    int number_of_pixels_along = 600;
+//    int number_of_pixels_across = 600;
+//    double pixel_size_mas_start = 0.003;
+//    double pixel_size_mas_stop = 0.003;
 
     auto image_size = std::make_pair(number_of_pixels_across, number_of_pixels_along);
     auto pc_in_mas = mas_to_pc(redshift);
@@ -540,22 +578,40 @@ void run_on_simulations(const std::string& mhd_run_name, double n_scale, double 
 
 
 int main(int argc, char *argv[]) {
-    if(argc != 5){
+
+    std::vector<string> implemented_heating_model_types{"bsq", "n", "jsq"};
+
+    if(argc != 6){
         std::cout << argc << "\n";
-        std::cout << "Supply MHD code, density scale factor > 0, 1 <= gamma_min, bool anisotropic_s\n" << "\n";
+        std::cout << "Supply MHD code, density scale factor (0 < f [< 1]), 1 <= gamma_min, bool anisotropic_s, particles heating model\n" << "\n";
         return 1;
     }
     else {
         std::cout << "Doing radiation transport for MHD code " << argv[1] << "\n";
         double n_scale = atof(argv[2]);
+        std::cout << "scaling factor for NT particles density = " << argv[2] << "\n";
         double gamma_min = atof(argv[3]);
+        std::cout << "gamma_min = " << argv[3] << "\n";
 
         bool anisotropic_s;
         std::istringstream is(argv[4]);
         is >> std::boolalpha >> anisotropic_s;
-        run_on_simulations(argv[1], n_scale, gamma_min, anisotropic_s);
+        std::cout << "Anisotropic s = " << argv[4] << "\n";
+
+        std::string particles_heating_model = argv[5];
+        std::cout << "Particles heating model = " << argv[5] << "\n";
+        // Check that particles heating model is implemented. This check is also done inside ``run_on_simulations``
+        if (std::find(implemented_heating_model_types.begin(),
+                      implemented_heating_model_types.end(),
+                      particles_heating_model) == implemented_heating_model_types.end())
+        {
+            throw NotImplmentedParticlesHeating(particles_heating_model);
+        }
+        run_on_simulations(argv[1], n_scale, gamma_min, anisotropic_s, particles_heating_model);
     }
+
+
 //    check_interpolations("psi10");
-//    check_psi_interpolations("psi10");
+//    check_psi_interpolations("core");
     return 0;
 }

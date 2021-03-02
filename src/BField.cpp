@@ -65,8 +65,12 @@ Vector3d VectorBField::bhat_lab_frame(const Vector3d &point, double psi, Vector3
     }
 }
 
-SimulationBField::SimulationBField(Delaunay_triangulation *tr_p, Delaunay_triangulation *tr_fi, bool in_plasma_frame, double tangled_fraction) :
-        VectorBField(in_plasma_frame, tangled_fraction, nullptr, nullptr), interp_p_(tr_p), interp_fi_(tr_fi) {}
+SimulationBField::SimulationBField(Delaunay_triangulation *tr_psi, Delaunay_triangulation *tr_p, Delaunay_triangulation *tr_fi,
+                                   bool in_plasma_frame, double tangled_fraction) :
+        VectorBField(in_plasma_frame, tangled_fraction, nullptr, nullptr),
+        interp_psi_(tr_psi, 1.0),
+        interp_p_(tr_p, 0.0),
+        interp_fi_(tr_fi, 0.0) {}
 
 Vector3d SimulationBField::_bf(const Vector3d &point, double psi) const {
     double x = point[0];
@@ -77,7 +81,27 @@ Vector3d SimulationBField::_bf(const Vector3d &point, double psi) const {
     if(phi < 0){
         phi += 2.0*M_PI;
     }
+    // FIXME: Only z-component - need to find angle to z-axis!
     double interpolated_value_p = interp_p_.interpolated_value({psi, z/pc});
     double interpolated_value_fi = interp_fi_.interpolated_value({psi, z/pc});
-    return Vector3d{-sin(phi) * interpolated_value_fi, cos(phi) * interpolated_value_fi, interpolated_value_p};
+
+    // FInd direction of the poloidal component
+    Vector2d gradPsi = interp_psi_.gradient({hypot(x, y)/pc, z/pc});
+    gradPsi.normalize();
+    // sin & cos of angle between the poloidal component and z-axis
+    // This is
+    double sinz = abs(gradPsi[1]);
+    double cosz = abs(gradPsi[0]);
+
+//    std::cout << "r_p = " << hypot(x, y)/pc << ", z = " << z/pc << "\n";
+//    std::cout << "Sin = " << sinz << "\n";
+//    std::cout << "Cos = " << cosz << "\n";
+
+    Vector3d B_p = {interpolated_value_p*sinz*cos(phi), interpolated_value_p*sinz*sin(phi), interpolated_value_p*cosz};
+    // TODO: What about direction of B_phi? Now it is the same as V_phi...
+    Vector3d B_phi = {-sin(phi)*interpolated_value_fi, cos(phi)*interpolated_value_fi, 0.0};
+
+//    return Vector3d{-sin(phi) * interpolated_value_fi, cos(phi) * interpolated_value_fi, interpolated_value_p};
+    return B_p + B_phi;
+//    return B_p - B_phi;
 }

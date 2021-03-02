@@ -38,12 +38,15 @@ class VectorBField {
 // Special class for Elena's calculations of axisymmetric flows.
 class SimulationBField : public VectorBField {
     public:
-        SimulationBField(Delaunay_triangulation *tr_p, Delaunay_triangulation *tr_fi, bool in_plasma_frame, double tangled_fraction=0.0);
+        SimulationBField(Delaunay_triangulation *tr_psi, Delaunay_triangulation *tr_p, Delaunay_triangulation *tr_fi,
+                         bool in_plasma_frame, double tangled_fraction=0.0);
         Vector3d _bf(const Vector3d &point, double psi) const override ;
 
     private:
         SimulationInterpolater interp_p_;
         SimulationInterpolater interp_fi_;
+        // For calculating direction of the poloidal component we need Psi(r_p, z)
+        SimulationInterpolater interp_psi_;
 };
 
 

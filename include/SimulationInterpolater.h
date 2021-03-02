@@ -29,15 +29,17 @@ void create_triangulation(std::string fn, Delaunay_triangulation* tr);
 
 
 class SimulationInterpolater {
-public:
-    explicit SimulationInterpolater(Delaunay_triangulation *tr, double nan_value=0);
-    // Interpolate in (r, z) or (Psi, z) plane, where r & z are in pc
-    double interpolated_value(Vector2d point) const;
+    public:
+        explicit SimulationInterpolater(Delaunay_triangulation *tr, double nan_value=0);
+        // Interpolate in (r, z) or (Psi, z) plane, where r & z are in pc
+        double interpolated_value(Vector2d point) const;
+        // Find gradient in (r, z) coordinates only!
+        Vector2d gradient(Vector2d point) const;
 
-private:
-    double nan_value_;
-    Delaunay_triangulation* tr_;
-    mutable Delaunay_triangulation::Face_handle previous_hit_fh_;
+    private:
+        double nan_value_;
+        Delaunay_triangulation* tr_;
+        mutable Delaunay_triangulation::Face_handle previous_hit_fh_;
 };
 
 

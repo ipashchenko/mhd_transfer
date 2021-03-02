@@ -72,6 +72,36 @@ double SimulationInterpolater::interpolated_value(Vector2d point) const {
 }
 
 
+Vector2d SimulationInterpolater::gradient(Vector2d point) const {
+    double eps = 1e-08;
+    // point = (r_p, z)
+    double r_p = point[0];
+    double z = point[1];
+
+//    std::cout << "Calculating gradient in point (r_p, z) = " << r_p << ", " << z << "\n";
+
+    // d/dr
+    double d_dr;
+    double h = (1. + r_p)*sqrt(eps);
+//    std::cout << "h for d/dr = " << h << "\n";
+    if(r_p - h <= 0) {
+        d_dr = (interpolated_value({r_p + h, z}) - interpolated_value({r_p, z}))/h;
+//        std::cout << "Border d/dr = " << d_dr << "\n";
+    } else {
+        d_dr = (interpolated_value({r_p + h, z}) - interpolated_value({r_p - h, z}))/(2.0*h);
+//        std::cout << "Two sided d/dr = " << d_dr << "\n";
+    }
+
+    // d/dz
+    double d_dz;
+    h = (1. + z)*sqrt(eps);
+//    std::cout << "h for d/dz = " << h << "\n";
+    d_dz = (interpolated_value({r_p, z + h}) - interpolated_value({r_p, z - h}))/(2.0*h);
+//    std::cout << "d/dz = " << d_dz << "\n";
+    return {d_dr, d_dz};
+}
+
+
 void create_triangulation(std::string fn, Delaunay_triangulation *tr) {
     std::vector< std::vector<double> > all_points;
     read_from_txt(fn, all_points);

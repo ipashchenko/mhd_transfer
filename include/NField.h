@@ -85,10 +85,12 @@ class PowerLawNField : public NField {
         //double eta_u(double b, Vector3d &n_los, double nu, double n_nt) const override;
         double eta_v(Vector3d &b, Vector3d &n_los, double nu, double n_nt) const override;
         //double eta_v(double b, Vector3d &n_los, double nu, double n_nt) const override;
-    private:
-        std::string plasma_;
+
+    protected:
         double s_;
         double gamma_min_;
+    private:
+        std::string plasma_;
         bool changing_s_;
         double ds_;
         double factor_ki_;
@@ -140,5 +142,49 @@ class SimulationNField: public PowerLawNField {
         SimulationInterpolater interp_;
 };
 
+
+class ConstrainedSimulationNField: public PowerLawNField {
+    public:
+        ConstrainedSimulationNField(Delaunay_triangulation *tr_nt,
+                                    Delaunay_triangulation *tr_cold,
+                                    bool in_plasma_frame, double s, double gamma_min, bool changing_s=false,
+                                    double scale_factor_nt=1.0,
+                                    double scale_factor_cold=1.0);
+        double _nf(const Vector3d &point, double psi) const override;
+
+    private:
+        // Scale factor for NT particles density. Can be arbitrary (e.g. in ``j^2`` heating model), can be (0, 1)-bounded
+        // (e.g. in ``n`` or ``B^2`` model)
+        double scale_factor_nt_;
+        // (0, 1) Maximal fraction of the cold particles that can be heated.
+        double scale_factor_cold_;
+        SimulationInterpolater interp_nt_;
+        SimulationInterpolater interp_cold_;
+};
+
+
+class ConstrainedSigmaSimulationNField: public PowerLawNField {
+    public:
+        ConstrainedSigmaSimulationNField(Delaunay_triangulation *tr_cold,
+                                         Delaunay_triangulation *tr_Bsq,
+                                         Delaunay_triangulation *tr_jsq,
+                                         std::string  particles_heating_model,
+                                         bool in_plasma_frame, double s, double gamma_min, bool changing_s=false,
+                                         double scale_factor_nt=1.0,
+                                         double max_frac_cold=1.0);
+        double _nf(const Vector3d &point, double psi) const override;
+
+    private:
+        std::string particles_heating_model_;
+        // Scale factor for NT particles density. Can be arbitrary (e.g. in ``j^2`` heating model), can be (0, 1)-bounded
+        // (e.g. in ``n`` or ``B^2`` model)
+        double scale_factor_nt_;
+        // (0, 1) Maximal fraction of the cold particles that can be heated.
+        double max_frac_cold_;
+        SimulationInterpolater interp_cold_;
+        SimulationInterpolater interp_Bsq_;
+        SimulationInterpolater interp_jsq_;
+
+};
 
 #endif //MHD_TRANSFER_NFIELD_H
