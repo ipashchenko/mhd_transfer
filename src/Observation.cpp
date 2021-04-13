@@ -74,7 +74,7 @@ pair<double, double> Observation::integrate_tau_adaptive(std::list<Intersection>
 		// This is out State
 		double optDepth = 0.0;
 		typedef runge_kutta_dopri5< double > stepper_type;
-	    auto stepper = make_dense_output(1E-18, 1E-03, dt_max, stepper_type());
+	    auto stepper = make_dense_output(1E-18, 1E-7, dt_max, stepper_type());
 		auto is_done = std::bind(check_opt_depth, tau_max, std::placeholders::_1);
 		auto ode_range = make_adaptive_range(std::ref(stepper), tau, optDepth, 0.0, length, dt);
 		auto found_iter = std::find_if(ode_range.first, ode_range.second, is_done);
@@ -149,12 +149,52 @@ void Observation::integrate_i_adaptive(std::list<Intersection> &list_intersect, 
         I stokesI(jet, point_out, inv_direction, nu);
 
         double stI = background_I;
+
+        // Adaptive
         typedef runge_kutta_dopri5<double> stepper_type;
-        // One can add observer function at the end of the argument list. Here ``dt`` is the initial step size
-        int num_steps = integrate_adaptive(make_controlled(1E-18, 1E-03, dt_max, stepper_type()),
+//         One can add observer function at the end of the argument list. Here ``dt`` is the initial step size
+        int num_steps = integrate_adaptive(make_controlled(1E-18, 1E-7, dt_max, stepper_type()),
                                            stokesI,
                                            stI, 0.0, length, dt);
+
+        // Const step size
+//        typedef runge_kutta4<double> stepper_type;
+//        integrate_const(stepper_type(), stokesI, stI, 0.0, length, dt);
+
         background_I = stI;
+    }
+}
+
+void Observation::integrate_speed_adaptive(std::list<Intersection> &list_intersect, const Vector3d& ray_direction, const double nu,
+                                           int n, double& emm_weighted_beta_app, double dt_max) {
+
+    for (auto it = list_intersect.rbegin();
+         it != list_intersect.rend(); ++it) {
+        auto borders = (*it).get_path();
+        Vector3d point_in = borders.first;
+        Vector3d point_out = borders.second;
+
+        double length = (point_out - point_in).norm();
+        // Initial step size (will be adjusted)
+        double dt = length / n;
+
+        Vector3d inv_direction = -1. * ray_direction;
+        Speed speed(jet, point_out, inv_direction, nu);
+
+        double beta_app = emm_weighted_beta_app;
+
+        // Adaptive
+        typedef runge_kutta_dopri5<double> stepper_type;
+        // One can add observer function at the end of the argument list. Here ``dt`` is the initial step size
+        int num_steps = integrate_adaptive(make_controlled(1E-18, 1E-7, dt_max, stepper_type()),
+                                           speed,
+                                           beta_app, 0.0, length, dt);
+
+        // Const step size
+//        typedef runge_kutta4<double> stepper_type;
+//        integrate_const(stepper_type(), speed, beta_app, 0.0, length, dt);
+
+        emm_weighted_beta_app = beta_app;
     }
 }
 
@@ -250,6 +290,7 @@ void Observation::observe_single_pixel(Ray &ray, Pixel &pxl,  double tau_min, do
 
         // Write final values to this inside function integrate_...
         double background_I = 0.;
+        double emm_weighted_beta_app = 0.;
         double background_taufr = 0.;
         std::vector<double> background_iquv{0., 0., 0., 0};
 
@@ -257,6 +298,10 @@ void Observation::observe_single_pixel(Ray &ray, Pixel &pxl,  double tau_min, do
         if (background_tau > tau_min && background_tau < 10*tau_max) {
             if (polarization == "I") {
                 integrate_i_adaptive(list_intersect, ray_direction, nu, n, background_I, dt_max);
+            }
+            else if(polarization == "speed") {
+                integrate_i_adaptive(list_intersect, ray_direction, nu, n, background_I, dt_max);
+                integrate_speed_adaptive(list_intersect, ray_direction, nu, n, emm_weighted_beta_app, dt_max);
             }
             else if (polarization == "full") {
                 // TODO: If one does not need adaptive step size - uncomment this line
@@ -273,6 +318,12 @@ void Observation::observe_single_pixel(Ray &ray, Pixel &pxl,  double tau_min, do
         if (polarization == "I") {
             value = "I";
             pxl.setValue(value, background_I);
+        }
+        else if (polarization == "speed") {
+            value = "I";
+            pxl.setValue(value, background_I);
+            value = "SPEED";
+            pxl.setValue(value, emm_weighted_beta_app);
         }
         else if (polarization == "full") {
             value = "I";

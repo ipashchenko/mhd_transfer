@@ -34,7 +34,8 @@ class SimulationInterpolater {
         // Interpolate in (r, z) or (Psi, z) plane, where r & z are in pc
         double interpolated_value(Vector2d point) const;
         // Find gradient in (r, z) coordinates only!
-        Vector2d gradient(Vector2d point) const;
+        // Here we find differences using interpolation in (Psi, z) space
+        Vector2d gradient(Vector2d point, const SimulationInterpolater& psi_space_interpolater) const;
 
     private:
         double nan_value_;

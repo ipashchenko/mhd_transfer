@@ -34,9 +34,6 @@ class Jet {
         // Get Psi given (r, z)
         double getPsi(const Vector3d& point);
 
-        // Get gradient of Psi given (r, z)
-        Vector2d getPsiGrad(const Vector3d& point);
-
         // Vector of the bulk motion speed (in cm/s) in the lab frame at point ``point``.
         Vector3d getV(const Vector3d& point, double psi);
 
@@ -49,6 +46,7 @@ class Jet {
 
     private:
         BaseGeometry* geometry_;
+        // Interpolator Psi(r_p, z)
         SimulationInterpolater* PsiInterpolater_;
         VField* vfield_;
         VectorBField* bfield_;

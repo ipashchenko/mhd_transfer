@@ -260,15 +260,6 @@ double Jet::getPsi(const Vector3d &point) {
     return PsiInterpolater_->interpolated_value({hypot(x, y), z});
 }
 
-
-Vector2d Jet::getPsiGrad(const Vector3d &point) {
-    double x = point[0]/pc;
-    double y = point[1]/pc;
-    double z = point[2]/pc;
-    return PsiInterpolater_->gradient({hypot(x, y), z});
-}
-
-
 Vector3d Jet::getV(const Vector3d &point, double psi) {
     auto v = vfield_->vf(point, psi);
     if(v.norm() > c) {

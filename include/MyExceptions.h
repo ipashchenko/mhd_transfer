@@ -24,6 +24,15 @@ class NotImplmentedParticlesHeating : public std::exception {
 };
 
 
+class NotImplmentedHeatingSuppression : public std::exception {
+        std::string msg;
+    public:
+        NotImplmentedHeatingSuppression(const std::string& model) : msg(std::string("Not implemented suppresion of particles heating: ") + model) {}
+        const char * what () const noexcept override {
+            return msg.c_str();
+        }
+};
+
 class PhysicalException : public std::exception {
         std::string msg;
     public:

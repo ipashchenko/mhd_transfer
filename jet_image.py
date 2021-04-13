@@ -276,16 +276,21 @@ class JetImage(ABC):
         return fig
 
     def plot(self, outfile=None, aspect="equal", Nan2zero=True, log=True, axis_units="mas", zoom_fr=1.0, cmap="magma",
-             figsize=None):
+             figsize=None, cblabel="Intensity, Jy/pix", scale_by_pixsize=True, beta_app_max=None, beta_app_min=None):
         # Factor that accounts non-uniform pixel size in plotting
         assert axis_units in ("pc", "mas")
         factor = (self.pixsize_array/np.min(self.pixsize_array))**2
         factor = factor.value
-        image = self.image()/factor.T
+        if scale_by_pixsize:
+            image = self.image()/factor.T
+        else:
+            image = self.image()
+        image[image < 1e-14] = 0
         min_positive = np.min(image[image > 0])
+        print("Min positive = ", min_positive)
         from scipy.stats import scoreatpercentile
         first_contour = scoreatpercentile(image[image > min_positive], 1)
-        print(first_contour)
+        # print(first_contour)
         if log and Nan2zero:
             image[image == 0.0] = 1e-12
 
@@ -319,7 +324,7 @@ class JetImage(ABC):
             axes.set_ylabel(r"$d$, pc")
             axes.set_xlabel(r"$r_{\rm ob}$, pc")
 
-        im = axes.pcolormesh(x, y, image.T, norm=norm, cmap=cmap, shading="gouraud")
+        im = axes.pcolormesh(x, y, image.T, norm=norm, cmap=cmap, shading="gouraud", vmin=beta_app_min, vmax=beta_app_max)
         axes.set_aspect(aspect)
 
         # Make a colorbar with label and units
@@ -327,7 +332,7 @@ class JetImage(ABC):
         cax = divider.append_axes("right", size="10%", pad=0.00)
         cb = fig.colorbar(im, cax=cax)
         # Intensity is in Jy per minimal pixel
-        cb.set_label("Intensity, Jy/pix")
+        cb.set_label(cblabel)
 
         if outfile:
             fig.savefig(outfile, dpi=600, bbox_inches="tight")
@@ -369,7 +374,7 @@ class JetImage(ABC):
             axes.set_xlabel(r"$r_{\rm ob}$, pc")
 
         cf = axes.contour(x, y, image.T, levels=levels, colors="gray", alpha=0.5, norm=norm)
-        im = axes.pcolormesh(x, y, alpha_image[:, :index_to_show].T, vmin=alpha_min, vmax=alpha_max, cmap="jet", shading="gouraud")
+        im = axes.pcolormesh(x, y, image[:, :index_to_show].T, vmin=alpha_min, vmax=alpha_max, cmap="jet", shading="gouraud")
         axes.set_aspect("equal")
 
         # Make a colorbar with label and units
@@ -483,79 +488,119 @@ def plot_interpolated(mhd_code):
     plt.matshow(np.log10(jsq_m*boost)[::,:125].T[::-1, ::], cmap="hsv", aspect="auto");plt.colorbar();plt.show()
 
 
-def plot_psi_interpolated(mhd_code, txt_dir='/home/ilya/github/mhd_transfer/Release'):
+def plot_psi_interpolated(mhd_code, extent=(0, 10, 0, 1), txt_dir='/home/ilya/github/mhd_transfer/Release'):
+    from mpl_toolkits.axes_grid1 import make_axes_locatable
+    from matplotlib import colors
+
+    def plot_single(value, extent, label, savename, aroundzero=False, vmin=None, vmax=None):
+        fig, axes = plt.subplots(1, 1)
+
+        if aroundzero:
+            if vmin is None and vmax is None:
+                vmin = np.min(value)
+                vmax = np.max(value)
+            print("Vmax = ", vmax)
+            print("Vmin = ", vmin)
+            assert vmin < 0
+            assert vmax > 0
+            norm = colors.TwoSlopeNorm(vmin=vmin, vcenter=0, vmax=vmax)
+            im = axes.matshow(value[::,:].T[::-1, ::], cmap="seismic", vmin=vmin, vmax=vmax, norm=norm, aspect="auto", extent=extent)
+        else:
+            im = axes.matshow(value[::,:].T[::-1, ::], cmap="gist_rainbow", aspect="auto", vmin=vmin, vmax=vmax, extent=extent)
+
+        axes.set_xlabel("z, pc")
+        axes.set_ylabel("r, pc")
+        divider = make_axes_locatable(axes)
+        cax = divider.append_axes("right", size="5%", pad=0.00)
+        cb = fig.colorbar(im, cax=cax)
+        cb.set_label(label)
+        fig.savefig(savename, bbox_inches="tight", dpi=300)
+        plt.show()
 
     Psi = np.loadtxt(os.path.join(txt_dir, "{}_Psi_psi_interpolated.txt".format(mhd_code)))
     Psi_m = np.ma.array(Psi, mask = Psi == 1)
-    plt.matshow(Psi_m[::,:125].T[::-1, ::], cmap="hsv", aspect="auto");plt.colorbar();plt.show()
+    plot_single(Psi_m, extent=extent, label=r"$\Psi$", savename="psi_psi_interpolation.png")
+
+    sigma = np.loadtxt(os.path.join(txt_dir, "{}_sigma_psi_interpolated.txt".format(mhd_code)))
+    sigma_m = np.ma.array(sigma, mask = Psi == 1)
+    plot_single(sigma_m, extent=extent, label=r"$\sigma$", savename="sigma_psi_interpolation.png")
+
+    angle = np.loadtxt(os.path.join(txt_dir, "{}_angle_interpolated.txt".format(mhd_code)))
+    angle_m = np.ma.array(angle, mask = Psi == 1)
+    plot_single(np.rad2deg(angle_m), extent=extent, label=r"$\theta_{\rm pol}$, degree", vmax=15, savename="poloidal_angle_from_Psi_gradient.png")
+
+    theta = np.loadtxt(os.path.join(txt_dir, "{}_theta_psi_interpolated.txt".format(mhd_code)))
+    theta_m = np.ma.array(theta, mask = Psi == 1)
+    plot_single(np.rad2deg(theta_m), extent=extent, label=r"$\theta_{\rm pol}$, degree", vmax=15, savename="poloidal_angle_interpolation.png")
+
+    jsq_phi = np.loadtxt(os.path.join(txt_dir, "{}_jsq_phi_psi_interpolated.txt".format(mhd_code)))
+    jsq_phi_m = np.ma.array(jsq_phi, mask=jsq_phi == 0)
+    plot_single(np.log10(jsq_phi_m), extent=extent, label=r"$\lg{j_{\phi}}^2$, rel.units", savename="jsq_phi_psi_interpolation.png")
 
     jsq = np.loadtxt(os.path.join(txt_dir, "{}_jsq_psi_interpolated.txt".format(mhd_code)))
     jsq_m = np.ma.array(jsq, mask=jsq == 0)
-    plt.matshow(np.log(jsq_m[::, :125].T[::-1, ::]), cmap="hsv", aspect="auto");plt.colorbar();plt.show()
+    plot_single(np.log10(jsq_m), extent=extent, label=r"$\lg{j_{\rm plasma}}^2$, rel.units", savename="jsq_psi_interpolation.png")
 
     bphi = np.loadtxt(os.path.join(txt_dir, "{}_beta_phi_psi_interpolated.txt".format(mhd_code)))
-    bphi_m = np.ma.array(bphi, mask = bphi == 0)
-    fig, axes = plt.subplots(1, 1)
-    im = axes.matshow(bphi_m[::, :].T[::-1, ::], cmap="hsv", aspect="auto", extent=[0, 1.5, 0, 0.2])
-    axes.set_xlabel("z, pc")
-    axes.set_ylabel("r, pc")
-    from mpl_toolkits.axes_grid1 import make_axes_locatable
-    divider = make_axes_locatable(axes)
-    cax = divider.append_axes("right", size="5%", pad=0.00)
-    cb = fig.colorbar(im, cax=cax)
-    cb.set_label(r"$\beta_{\phi}$, c")
-    # fig.savefig("beta_phi.png", bbox_inches="tight", dpi=300)
-    plt.show()
+    bphi_m = np.ma.array(bphi, mask=Psi == 1)
+    # FIXME: n Lena's data beta_phi is nonnegative...
+    # plot_single(bphi_m, extent=extent, label=r"$\beta_{\phi}$, c", savename="beta_phi_psi_interpolation.png", aroundzero=False)
+    plot_single(bphi_m, extent=extent, label=r"$\beta_{\phi}$, c", savename="beta_phi_psi_interpolation.png",
+                aroundzero=True, vmin=-0.1, vmax=0.1)
 
-
-
-    Gamma = np.loadtxt("{}_Gamma_psi_interpolated.txt".format(mhd_code))
+    Gamma = np.loadtxt(os.path.join(txt_dir, "{}_Gamma_psi_interpolated.txt".format(mhd_code)))
     Gamma_m = np.ma.array(Gamma, mask = Gamma == 1)
-    plt.matshow(Gamma_m[::,:125].T[::-1, ::], cmap="hsv", aspect="auto");plt.colorbar();plt.show()
+    plot_single(Gamma_m, extent=extent, label=r"$\Gamma$", savename="Gamma_psi_interpolation.png")
 
-    N = np.loadtxt("{}_N_psi_interpolated.txt".format(mhd_code))
+    N = np.loadtxt(os.path.join(txt_dir, "{}_N_psi_interpolated.txt".format(mhd_code)))
     N_m = np.ma.array(N, mask = N == 0)
-    plt.matshow(np.log(N_m[::,:125].T[::-1, ::]), cmap="hsv", aspect="auto");plt.colorbar();plt.show()
+    plot_single(np.log10(N_m), extent=extent, label=r"$\lg{N_{\rm plasma}}$, cm$^{-3}$", savename="N_plasma_psi_interpolation.png")
 
-    B_phi = np.loadtxt("{}_B_phi_psi_interpolated.txt".format(mhd_code))
-    B_phi_m = np.ma.array(B_phi, mask = B_phi == 0)
-    plt.matshow(np.log(B_phi_m[::,:125].T[::-1, ::]), cmap="hsv", aspect="auto");plt.colorbar();plt.show()
+    # FIXME: Lena's B_phi is negative
+    B_phi = np.loadtxt(os.path.join(txt_dir, "{}_B_phi_psi_interpolated.txt".format(mhd_code)))
+    B_phi_m = np.ma.array(B_phi, mask = Psi == 1)
+    plot_single(np.log10(abs(B_phi_m)), extent=extent, label=r"$\lg{B_{\phi}}$, G", savename="B_phi_psi_interpolation.png")
 
-    B_p = np.loadtxt("{}_B_p_psi_interpolated.txt".format(mhd_code))
+    B_p = np.loadtxt(os.path.join(txt_dir, "{}_B_p_psi_interpolated.txt".format(mhd_code)))
     B_p_m = np.ma.array(B_p, mask = B_p == 0)
-    plt.matshow(np.log(B_p_m[::,:125].T[::-1, ::]), cmap="hsv", aspect="auto");plt.colorbar();plt.show()
+    plot_single(np.log10(B_p_m), extent=extent, label=r"$\lg{B_{\rm p}}$, G", savename="B_p_psi_interpolation.png")
 
     B_tot = np.hypot(B_p_m, B_phi_m/Gamma_m)
-    plt.matshow(np.log((B_tot**2)[::,:125].T[::-1, ::]), cmap="hsv", aspect="auto");plt.colorbar();plt.show()
+    plot_single(np.log10(B_tot), extent=extent, label=r"$\lg{B_{\rm tot,plasma}}$, G", savename="B_tot_plasma_psi_interpolation.png")
 
-    beta = np.sqrt(Gamma_m**2-1)/Gamma_m
-    D = 1/(Gamma_m*(1-beta*np.cos(np.deg2rad(17))))
-    boost = D**2.5
-    plt.matshow(boost[::,:125].T[::-1, ::], cmap="hsv", aspect="auto");plt.colorbar();plt.show()
+
+    # plt.matshow(np.log((B_tot**2)[::,:125].T[::-1, ::]), cmap="hsv", aspect="auto");plt.colorbar();plt.show()
+
+    # beta = np.sqrt(Gamma_m**2-1)/Gamma_m
+    # D = 1/(Gamma_m*(1-beta*np.cos(np.deg2rad(17))))
+    # boost = D**2.5
+    # plt.matshow(boost[::,:125].T[::-1, ::], cmap="hsv", aspect="auto");plt.colorbar();plt.show()
 
     # n_plasma
-    plt.matshow(np.log10(N_m*boost/Gamma_m)[::,:125].T[::-1, ::], cmap="hsv", aspect="auto");plt.colorbar();plt.show()
+    # plt.matshow(np.log10(N_m*boost/Gamma_m)[::,:125].T[::-1, ::], cmap="hsv", aspect="auto");plt.colorbar();plt.show()
     # B_tot
-    plt.matshow(np.log10(B_tot*boost)[::,:125].T[::-1, ::], cmap="hsv", aspect="auto");plt.colorbar();plt.show()
+    # plt.matshow(np.log10(B_tot*boost)[::,:125].T[::-1, ::], cmap="hsv", aspect="auto");plt.colorbar();plt.show()
     # jsq_plasma
-    plt.matshow(np.log10(jsq_m*boost)[::,:125].T[::-1, ::], cmap="hsv", aspect="auto");plt.colorbar();plt.show()
+    # plt.matshow(np.log10(jsq_m*boost)[::,:125].T[::-1, ::], cmap="hsv", aspect="auto");plt.colorbar();plt.show()
 
 
 def plot_images(mhd_code, rt_code, txt_files_dir="/home/ilya/github/mhd_transfer/Release", save_dir=None,
                 n_along=600, n_across=200, lg_pixel_size_mas_min=np.log10(0.01), lg_pixel_size_mas_max=np.log10(0.1),
-                freq_ghz_high=15.4, freq_ghz_low=None, cmap="magma"):
+                freq_ghz_high=15.4, freq_ghz_low=None, cmap="magma", plot_beta_app=False):
     if save_dir is None:
         save_dir = os.getcwd()
 
     if freq_ghz_low:
         i_image_low = np.loadtxt("{}/{}_jet_image_{}_{}.txt".format(txt_files_dir, mhd_code, "i", freq_ghz_low))
     i_image_high = np.loadtxt("{}/{}_jet_image_{}_{}.txt".format(txt_files_dir, mhd_code, "i", freq_ghz_high))
+
     if freq_ghz_low:
         alpha_image = np.log(i_image_low/i_image_high)/np.log(freq_ghz_low/freq_ghz_high)
 
     jm = JetImage(z=0.00436, n_along=n_along, n_across=n_across,
                   lg_pixel_size_mas_min=lg_pixel_size_mas_min,
                   lg_pixel_size_mas_max=lg_pixel_size_mas_max, jet_side=True)
+
     jm.load_image_stokes("I", "{}/{}_jet_image_i_{}.txt".format(txt_files_dir, mhd_code, freq_ghz_high))
     if freq_ghz_low:
         jm.load_image_alpha(alpha_image)
@@ -564,6 +609,16 @@ def plot_images(mhd_code, rt_code, txt_files_dir="/home/ilya/github/mhd_transfer
                 bbox_inches="tight", dpi=300)
     plt.show()
     plt.close(fig)
+
+    if plot_beta_app:
+        jm.load_image_stokes("beta_app", "{}/{}_jet_image_beta_app_{}.txt".format(txt_files_dir, mhd_code, freq_ghz_high))
+        fig = jm.plot(log=False, Nan2zero=False, zoom_fr=1.0, axis_units="mas", figsize=(20, 7.5), cmap="gist_ncar_r",
+                      cblabel=r"$\beta_{\rm app}$, c", scale_by_pixsize=False, beta_app_min=0, beta_app_max=7)
+        fig.savefig(os.path.join(save_dir, "beta_app_freq_{}_GHz_mhd_{}_rt_{}.png".format(freq_ghz_high, mhd_code, rt_code)),
+                    bbox_inches="tight", dpi=300)
+        plt.show()
+        plt.close(fig)
+
     if freq_ghz_low:
         fig = jm.plot_alpha(figsize=(20, 7.5), alpha_min=-1., alpha_max=0.0, count_levels_from_image_min=True)
         fig.savefig(os.path.join(save_dir, "alpha_mhd_{}_rt_{}.png".format(mhd_code, rt_code)),
@@ -592,17 +647,23 @@ if __name__ == "__main__":
     # This applies to my local work in CLion. Change it to ``Release`` (or whatever) if necessary.
     jetpol_run_directory = "Release"
     n_along = 600
-    n_across = 600
-    lg_pixel_size_mas_min = np.log10(0.003)
-    lg_pixel_size_mas_max = np.log10(0.003)
-    freq_ghz_high = 86
+    # n_across = 200
+    n_across = 100
+    lg_pixel_size_mas_min = np.log10(0.01)
+    # lg_pixel_size_mas_min = np.log10(0.003)
+    # lg_pixel_size_mas_max = np.log10(0.1)
+    lg_pixel_size_mas_max = np.log10(0.05)
+    freq_ghz_high = 15.4
     freq_ghz_low = None
-    mhd_code = "core"
+    # mhd_code = "best"
+    # mhd_code = "m2s10g2b44.614955r0.000595"
+    mhd_code = "m1s10g2b123.971372r0.000369"
     rt_code = "n1"
 
     plot_images(mhd_code=mhd_code, rt_code=rt_code, freq_ghz_high=freq_ghz_high, freq_ghz_low=freq_ghz_low,
                 n_along=n_along, n_across=n_across,
-                lg_pixel_size_mas_min=lg_pixel_size_mas_min, lg_pixel_size_mas_max=lg_pixel_size_mas_max)
+                lg_pixel_size_mas_min=lg_pixel_size_mas_min, lg_pixel_size_mas_max=lg_pixel_size_mas_max,
+                cmap="jet", plot_beta_app=True)
 
     import sys; sys.exit(0)
 

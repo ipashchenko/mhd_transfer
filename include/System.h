@@ -44,6 +44,15 @@ class I : public System {
   void operator() (const double &x, double &dxdt, double t) override;
 };
 
+
+class Speed : public System {
+    public:
+        Speed(Jet* newjet, Vector3d &newpoint_in, Vector3d &newray_direction,
+          double newnu) : System(newjet, newpoint_in, newray_direction, newnu) {};
+
+        void operator() (const double &x, double &dxdt, double t) override;
+};
+
 class FullStokes {
     public:
 		FullStokes(Jet* newjet, Vector3d &newpoint_in, Vector3d &newray_direction, double newnu);

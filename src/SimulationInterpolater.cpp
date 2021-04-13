@@ -72,8 +72,9 @@ double SimulationInterpolater::interpolated_value(Vector2d point) const {
 }
 
 
-Vector2d SimulationInterpolater::gradient(Vector2d point) const {
-    double eps = 1e-08;
+Vector2d SimulationInterpolater::gradient(Vector2d point, const SimulationInterpolater& psi_space_interpolater) const {
+    double eps_r = 0.025;
+    double eps_z = 0.1;
     // point = (r_p, z)
     double r_p = point[0];
     double z = point[1];
@@ -81,22 +82,44 @@ Vector2d SimulationInterpolater::gradient(Vector2d point) const {
 //    std::cout << "Calculating gradient in point (r_p, z) = " << r_p << ", " << z << "\n";
 
     // d/dr
-    double d_dr;
-    double h = (1. + r_p)*sqrt(eps);
+    double d_dr, psi_plus, psi_minus, psi_cur;
+//    double h = (1. + r_p)*sqrt(eps);
+    double h = r_p*eps_r;
 //    std::cout << "h for d/dr = " << h << "\n";
     if(r_p - h <= 0) {
-        d_dr = (interpolated_value({r_p + h, z}) - interpolated_value({r_p, z}))/h;
+        // Find (Psi, z) coordinate for (r_p+h, z)
+        psi_plus = interpolated_value({r_p + h, z});
+        psi_cur = interpolated_value({r_p, z});
+        d_dr = (psi_space_interpolater.interpolated_value({psi_plus, z}) -
+                psi_space_interpolater.interpolated_value({psi_cur, z}))/h;
 //        std::cout << "Border d/dr = " << d_dr << "\n";
     } else {
-        d_dr = (interpolated_value({r_p + h, z}) - interpolated_value({r_p - h, z}))/(2.0*h);
+        // Find (Psi, z) coordinates for (r_p+h, z) and (r_p-h, z)
+        psi_plus = interpolated_value({r_p + h, z});
+        psi_minus = interpolated_value({r_p - h, z});
+
+        d_dr = (psi_space_interpolater.interpolated_value({psi_plus, z}) -
+                psi_space_interpolater.interpolated_value({psi_minus, z}))/(2.0*h);
 //        std::cout << "Two sided d/dr = " << d_dr << "\n";
     }
 
     // d/dz
     double d_dz;
-    h = (1. + z)*sqrt(eps);
+//    h = (1. + z)*sqrt(eps);
+    h = z*eps_z;
 //    std::cout << "h for d/dz = " << h << "\n";
-    d_dz = (interpolated_value({r_p, z + h}) - interpolated_value({r_p, z - h}))/(2.0*h);
+    // Find (Psi, z) coordinates for (r_p, z+h) and (r_p, z-h)
+    psi_plus = interpolated_value({r_p, z + h});
+    psi_minus = interpolated_value({r_p, z - h});
+    if(psi_minus == 1.0){
+        psi_cur = interpolated_value({r_p, z});
+        d_dz = (psi_space_interpolater.interpolated_value({psi_plus, z + h}) -
+                psi_space_interpolater.interpolated_value({psi_cur, z}))/h;
+    } else {
+        d_dz = (psi_space_interpolater.interpolated_value({psi_plus, z + h}) -
+                psi_space_interpolater.interpolated_value({psi_minus, z - h}))/(2.0*h);
+    }
+
 //    std::cout << "d/dz = " << d_dz << "\n";
     return {d_dr, d_dz};
 }

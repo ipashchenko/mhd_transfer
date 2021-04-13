@@ -353,35 +353,90 @@ double ConstrainedSimulationNField::_nf(const Vector3d &point, double psi) const
 };
 
 
-
-ConstrainedSigmaSimulationNField::ConstrainedSigmaSimulationNField(Delaunay_triangulation *tr_cold,
-                                                                   Delaunay_triangulation *tr_Bsq,
-                                                                   Delaunay_triangulation *tr_jsq,
-                                                                   std::string particles_heating_model,
+ConstrainedSigmaSimulationNField::ConstrainedSigmaSimulationNField(Delaunay_triangulation *tr_nt,
+                                                                   Delaunay_triangulation *tr_cold,
+                                                                   Delaunay_triangulation *tr_sigma,
                                                                    bool in_plasma_frame, double s, double gamma_min,
                                                                    bool changing_s, double scale_factor_nt,
-                                                                   double max_frac_cold) :
+                                                                   double scale_factor_cold) :
+        PowerLawNField(in_plasma_frame, s, gamma_min, nullptr, "pairs", changing_s, 0.0),
+        interp_nt_(tr_nt),
+        interp_cold_(tr_cold),
+        interp_sigma_(tr_sigma),
+        scale_factor_nt_(scale_factor_nt),
+        scale_factor_cold_(scale_factor_cold) {}
+
+double ConstrainedSigmaSimulationNField::_nf(const Vector3d &point, double psi) const {
+    double z = point[2];
+
+    double sigma = interp_sigma_.interpolated_value({psi, z/pc});
+    double sigma_suppression_factor = 1./(1. + exp(sigma));
+
+    double n_cold = scale_factor_cold_*interp_cold_.interpolated_value({psi, z/pc});
+    double n_nt = sigma_suppression_factor*scale_factor_nt_*interp_nt_.interpolated_value({psi, z/pc});
+    if(n_nt < n_cold) {
+        return n_nt;
+    }else {
+        return n_cold;
+    }
+};
+
+
+ConstrainedBetaSimulationNField::ConstrainedBetaSimulationNField(Delaunay_triangulation *tr_cold,
+                                                                 Delaunay_triangulation *tr_Bsq,
+                                                                 Delaunay_triangulation *tr_jsq,
+                                                                 Delaunay_triangulation *tr_sigma,
+                                                                 std::string particles_heating_model,
+                                                                 std::string constrain_type,
+                                                                 bool in_plasma_frame, double s, double gamma_min,
+                                                                 bool changing_s,
+                                                                 double scale_factor_nt,
+                                                                 double scale_factor_border,
+                                                                 double max_frac_cold,
+                                                                 double psi_mean,
+                                                                 double psi_width) :
         PowerLawNField(in_plasma_frame, s, gamma_min, nullptr, "pairs", changing_s, 0.0),
         interp_cold_(tr_cold),
         interp_Bsq_(tr_Bsq),
         interp_jsq_(tr_jsq),
+        interp_sigma_(tr_sigma),
         particles_heating_model_(std::move(particles_heating_model)),
+        constrain_type_(std::move(constrain_type)),
         scale_factor_nt_(scale_factor_nt),
-        max_frac_cold_(max_frac_cold) {}
+        scale_factor_border_(scale_factor_border),
+        max_frac_cold_(max_frac_cold),
+        psi_mean_(psi_mean),
+        psi_width_(psi_width) {}
 
-double ConstrainedSigmaSimulationNField::_nf(const Vector3d &point, double psi) const {
+double ConstrainedBetaSimulationNField::_nf(const Vector3d &point, double psi) const {
     double x = point[0];
     double y = point[1];
     double r_p = hypot(x, y)/pc;
     double z = point[2];
     double n_nt;
 
+
+    // Relative amplitude of NT particles density enhancement
+//    double amp = -(psi_mean_ - psi)*(psi_mean_ - psi)/(2.0*psi_width_*psi_width_);
+//    double amp = -abs(psi_mean_ - psi)/psi_width_;
+//    amp = exp(amp);
+
+//    double amp;
+//    if(abs(psi - psi_mean_) < psi_width_){
+//        amp = 1.0;
+//    }else {
+//        amp = 0.0;
+//    }
+
+    double amp = generalized1_gaussian1d(psi, psi_mean_, psi_width_, 2);
+
     // Number of cold particles in plasma frame
     double n_cold = interp_cold_.interpolated_value({psi, z/pc});
+    double n_nt_border = scale_factor_border_ * amp * n_cold;
+
     // Squared magnetic field in plasma frame
     double Bsq = interp_Bsq_.interpolated_value({psi, z/pc});
-    // Local inverse sigma
-    double inv_sigma = 8.0*M_PI*n_cold*m_e*c*c/Bsq;
+
 //    if(1/inv_sigma > 1.0) {
 //        std::cout << "sigma = " << 1./inv_sigma << " at Psi = " << psi << "at z_pc = " << z/pc << "\n";
 //    }
@@ -391,8 +446,28 @@ double ConstrainedSigmaSimulationNField::_nf(const Vector3d &point, double psi) 
 //    if(r_p < 0.01) {
 //        std::cout << "r_p = " << r_p << ", z = " << z/pc << " with sigma = " << 1./inv_sigma << "\n";
 //    }
-    // Suppression factor of Broderick+2010
-    double sigma_suppression_factor = 1./(1. + exp(inv_sigma));
+
+    double suppression_factor;
+    if(constrain_type_ == "beta") {
+        // Local inverse sigma
+        double inv_beta = 8.0 * M_PI * n_cold * m_e * c * c / Bsq;
+        // Suppression factor of Broderick+2010
+        suppression_factor = 1./(1. + exp(inv_beta));
+    }
+    else if(constrain_type_ == "sigma") {
+        double sigma = interp_sigma_.interpolated_value({psi, z/pc});
+        suppression_factor = 1./(1. + exp(1./sigma));
+//        if(suppression_factor < 0.005) {
+//            std::cout << "Supfactor = " << suppression_factor << " At r_p[pc] = " << r_p << ", z[pc] = " << z/pc << "\n";
+//        }
+    }
+    else if(constrain_type_ == "none") {
+        suppression_factor = 1.0;
+    }
+    else {
+        throw NotImplmentedHeatingSuppression(constrain_type_);
+    }
+
 //    std::cout << "sigma suppression factor = " << sigma_suppression_factor << "\n";
 
     // Maximum number of cold particles that can be heated
@@ -401,7 +476,7 @@ double ConstrainedSigmaSimulationNField::_nf(const Vector3d &point, double psi) 
     if(particles_heating_model_ == "n"){
         // Number of emitting particles ~ number of cold particles
         // In this case ``scale_factor_nt_`` - efficiency of cold particles heating - must be in [0, 1]
-        n_nt = scale_factor_nt_*n_cold*sigma_suppression_factor;
+        n_nt = scale_factor_nt_*n_cold*suppression_factor;
     }
     else if(particles_heating_model_ == "bsq") {
         // Number of emitting particles ~ B_plasma^2
@@ -410,22 +485,25 @@ double ConstrainedSigmaSimulationNField::_nf(const Vector3d &point, double psi) 
         // From the relation:
         // u_e = n_nt * mc^2 * (s-1)/(s-2) * gamma_min = B^2/(8pi) * sigma_suppression_factor
         // the scale coefficient from B^2 to n_nt is:
-        double n_nt_Bsq = sigma_suppression_factor*(s_ - 2)/(s_ - 1)/(8*M_PI*m_e*c*c*gamma_min_);
+        double n_nt_Bsq = suppression_factor*(s_ - 2)/(s_ - 1)/(8*M_PI*m_e*c*c*gamma_min_);
         n_nt = scale_factor_nt_*n_nt_Bsq*Bsq;
     }
     else if(particles_heating_model_ == "jsq") {
         // Number of emitting particles ~ j_plasma^2. ``scale_factor_nt_`` is arbitrary positive number.
-        n_nt = scale_factor_nt_*interp_jsq_.interpolated_value({psi, z/pc})*sigma_suppression_factor;
+        n_nt = scale_factor_nt_*interp_jsq_.interpolated_value({psi, z/pc})*suppression_factor;
+    }
+    else if(particles_heating_model_ == "byhand") {
+        n_nt = 0.0;
     }
     else {
         throw NotImplmentedParticlesHeating(particles_heating_model_);
     }
 
     // Number of nonthermal particles can't be larger than some fraction (``max_frac_cold_``) of all cold particles
-    if(n_nt < n_cold_max) {
-        return n_nt;
-    }else {
+    if(n_nt + n_nt_border > n_cold_max) {
         std::cout << "Number of NT particles can't be larger than number of cold particles!" << std::endl;
         return n_cold_max;
+    }else {
+        return n_nt + n_nt_border;
     }
 };

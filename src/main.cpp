@@ -126,6 +126,165 @@ void check_interpolations(const std::string& mhd_run_name) {
 }
 
 
+void check_psi_interpolations_Lena(const std::string& mhd_run_name) {
+
+    Delaunay_triangulation tr_B_p, tr_B_phi, tr_N, tr_Gamma, tr_beta_phi, tr_jsq, tr_jsq_phi, tr_sigma, tr_theta, tr_Psi, tr_rPsi;
+    // Triangulations for (z, Psi, value)
+    create_triangulation(mhd_run_name + "_B_p_field_psi.txt", &tr_B_p);
+    create_triangulation(mhd_run_name + "_B_phi_field_psi.txt", &tr_B_phi);
+    create_triangulation(mhd_run_name + "_Psi_field_psi.txt", &tr_Psi);
+    create_triangulation(mhd_run_name + "_n_plasma_field_psi.txt", &tr_N);
+    create_triangulation(mhd_run_name + "_Gamma_field_psi.txt", &tr_Gamma);
+    create_triangulation(mhd_run_name + "_beta_phi_field_psi.txt", &tr_beta_phi);
+    create_triangulation(mhd_run_name + "_sigma_field_psi.txt", &tr_sigma);
+    create_triangulation(mhd_run_name + "_theta_field_psi.txt", &tr_theta);
+    create_triangulation(mhd_run_name + "_jsq_phi_plasma_field_psi.txt", &tr_jsq_phi);
+    create_triangulation(mhd_run_name + "_jsq_plasma_field_psi.txt", &tr_jsq);
+    // Triangulation for (z, r, Psi)
+    create_triangulation(mhd_run_name + "_Psi_field.txt", &tr_rPsi);
+
+    // Interpolates in (z, Psi) coordinates
+    SimulationInterpolater interp_B_p(&tr_B_p);
+    SimulationInterpolater interp_B_phi(&tr_B_phi);
+    SimulationInterpolater interp_N(&tr_N);
+    SimulationInterpolater interp_Gamma(&tr_Gamma, 1.0);
+    SimulationInterpolater interp_sigma(&tr_sigma);
+    SimulationInterpolater interp_theta(&tr_theta);
+    SimulationInterpolater interp_beta_phi(&tr_beta_phi);
+    SimulationInterpolater interp_jsq(&tr_jsq);
+    SimulationInterpolater interp_jsq_phi(&tr_jsq_phi);
+    SimulationInterpolater interp_Psi(&tr_Psi, 1.0);
+
+    // Interpolate Psi(z, r): given (z, r) returns (Psi)
+    SimulationInterpolater interp_rPsi(&tr_rPsi, 1.0);
+    // Points where to find values
+    size_t n_along = 5000;
+    size_t n_across = 500;
+    auto z_pc = linspace(0.0, 5.0, 5001);
+    auto r_pc = linspace(0.0, 0.5, 501);
+    auto psi = linspace(0.0, 1.0, 501);
+
+    std::vector<std::vector<double>> B_p, B_phi, N, Gamma, beta_phi, jsq, jsq_phi, sigma, theta, Psi, angle;
+    B_p.resize(n_along);
+    B_phi.resize(n_along);
+    N.resize(n_along);
+    Gamma.resize(n_along);
+    beta_phi.resize(n_along);
+    jsq.resize(n_along);
+    jsq_phi.resize(n_along);
+    sigma.resize(n_along);
+    theta.resize(n_along);
+    Psi.resize(n_along);
+    angle.resize(n_along);
+    for(size_t i=0; i < n_along; i++) {
+        B_p[i].resize(n_across);
+        B_phi[i].resize(n_across);
+        N[i].resize(n_across);
+        Gamma[i].resize(n_across);
+        beta_phi[i].resize(n_across);
+        jsq[i].resize(n_across);
+        jsq_phi[i].resize(n_across);
+        sigma[i].resize(n_across);
+        theta[i].resize(n_across);
+        Psi[i].resize(n_across);
+        angle[i].resize(n_across);
+        for(size_t j=0; j < n_across; j++) {
+            // Point in physical space
+            Vector2d pos = {r_pc[j],z_pc[i]};
+            // Point in (z, Psi) space
+            Vector2d pos_psi = {interp_rPsi.interpolated_value(pos), z_pc[i]};
+
+            // Find angle of streamline to z-axis
+            Vector2d gradPsi = interp_rPsi.gradient(pos, interp_Psi);
+            gradPsi.normalize();
+            double sinz = abs(gradPsi[1]);
+            angle[i][j] = asin(sinz);
+
+            // Find interpolated in (z, Psi) space values
+            B_p[i][j] = interp_B_p.interpolated_value(pos_psi);
+            B_phi[i][j] = interp_B_phi.interpolated_value(pos_psi);
+            N[i][j] = interp_N.interpolated_value(pos_psi);
+            Gamma[i][j] = interp_Gamma.interpolated_value(pos_psi);
+            sigma[i][j] = interp_sigma.interpolated_value(pos_psi);
+            theta[i][j] = interp_theta.interpolated_value(pos_psi);
+            beta_phi[i][j] = interp_beta_phi.interpolated_value(pos_psi);
+            jsq[i][j] = interp_jsq.interpolated_value(pos_psi);
+            jsq_phi[i][j] = interp_jsq_phi.interpolated_value(pos_psi);
+            Psi[i][j] = interp_Psi.interpolated_value(pos_psi);
+        }
+    }
+
+    std::fstream fs;
+
+    fs.open(mhd_run_name + "_angle_interpolated.txt", std::ios::out | std::ios::app);
+    if (fs.is_open()) {
+        write_2dvector(fs, angle);
+        fs.close();
+    }
+
+
+    fs.open(mhd_run_name + "_B_p_psi_interpolated.txt", std::ios::out | std::ios::app);
+    if (fs.is_open()) {
+        write_2dvector(fs, B_p);
+        fs.close();
+    }
+
+    fs.open(mhd_run_name + "_B_phi_psi_interpolated.txt", std::ios::out | std::ios::app);
+    if (fs.is_open()) {
+        write_2dvector(fs, B_phi);
+        fs.close();
+    }
+
+    fs.open(mhd_run_name + "_N_psi_interpolated.txt", std::ios::out | std::ios::app);
+    if (fs.is_open()) {
+        write_2dvector(fs, N);
+        fs.close();
+    }
+
+    fs.open(mhd_run_name + "_Gamma_psi_interpolated.txt", std::ios::out | std::ios::app);
+    if (fs.is_open()) {
+        write_2dvector(fs, Gamma);
+        fs.close();
+    }
+
+    fs.open(mhd_run_name + "_sigma_psi_interpolated.txt", std::ios::out | std::ios::app);
+    if (fs.is_open()) {
+        write_2dvector(fs, sigma);
+        fs.close();
+    }
+
+    fs.open(mhd_run_name + "_theta_psi_interpolated.txt", std::ios::out | std::ios::app);
+    if (fs.is_open()) {
+        write_2dvector(fs, theta);
+        fs.close();
+    }
+
+    fs.open(mhd_run_name + "_beta_phi_psi_interpolated.txt", std::ios::out | std::ios::app);
+    if (fs.is_open()) {
+        write_2dvector(fs, beta_phi);
+        fs.close();
+    }
+
+    fs.open(mhd_run_name + "_jsq_psi_interpolated.txt", std::ios::out | std::ios::app);
+    if (fs.is_open()) {
+        write_2dvector(fs, jsq);
+        fs.close();
+    }
+
+    fs.open(mhd_run_name + "_jsq_phi_psi_interpolated.txt", std::ios::out | std::ios::app);
+    if (fs.is_open()) {
+        write_2dvector(fs, jsq_phi);
+        fs.close();
+    }
+
+    fs.open(mhd_run_name + "_Psi_psi_interpolated.txt", std::ios::out | std::ios::app);
+    if (fs.is_open()) {
+        write_2dvector(fs, Psi);
+        fs.close();
+    }
+}
+
+
 void check_psi_interpolations(const std::string& mhd_run_name) {
 
     Delaunay_triangulation tr_B_p, tr_B_phi, tr_N, tr_Gamma, tr_beta_phi, tr_jsq, tr_Psi, tr_rPsi;
@@ -152,13 +311,13 @@ void check_psi_interpolations(const std::string& mhd_run_name) {
     // Interpolate Psi(z, r): given (z, r) returns (Psi)
     SimulationInterpolater interp_rPsi(&tr_rPsi, 1.0);
     // Points where to find values
-    size_t n_along = 1500;
-    size_t n_across = 200;
-    auto z_pc = linspace(0.0, 1.5, 1501);
-    auto r_pc = linspace(0.0, 0.2, 201);
-    auto psi = linspace(0.0, 1.0, 201);
+    size_t n_along = 5000;
+    size_t n_across = 500;
+    auto z_pc = linspace(0.0, 10.0, 5001);
+    auto r_pc = linspace(0.0, 5.0, 501);
+    auto psi = linspace(0.0, 1.0, 501);
 
-    std::vector<std::vector<double>> B_p, B_phi, N, Gamma, beta_phi, jsq, Psi;
+    std::vector<std::vector<double>> B_p, B_phi, N, Gamma, beta_phi, jsq, Psi, angle;
     B_p.resize(n_along);
     B_phi.resize(n_along);
     N.resize(n_along);
@@ -166,6 +325,7 @@ void check_psi_interpolations(const std::string& mhd_run_name) {
     beta_phi.resize(n_along);
     jsq.resize(n_along);
     Psi.resize(n_along);
+    angle.resize(n_along);
     for(size_t i=0; i < n_along; i++) {
         B_p[i].resize(n_across);
         B_phi[i].resize(n_across);
@@ -174,11 +334,18 @@ void check_psi_interpolations(const std::string& mhd_run_name) {
         beta_phi[i].resize(n_across);
         jsq[i].resize(n_across);
         Psi[i].resize(n_across);
+        angle[i].resize(n_across);
         for(size_t j=0; j < n_across; j++) {
             // Point in physical space
             Vector2d pos = {r_pc[j],z_pc[i]};
             // Point in (z, Psi) space
             Vector2d pos_psi = {interp_rPsi.interpolated_value(pos), z_pc[i]};
+
+            // Find angle of streamline to z-axis
+            Vector2d gradPsi = interp_rPsi.gradient(pos, interp_Psi);
+            gradPsi.normalize();
+            double sinz = abs(gradPsi[1]);
+            angle[i][j] = asin(sinz);
 
             // Find interpolated in (z, Psi) space values
             B_p[i][j] = interp_B_p.interpolated_value(pos_psi);
@@ -192,6 +359,13 @@ void check_psi_interpolations(const std::string& mhd_run_name) {
     }
 
     std::fstream fs;
+
+    fs.open(mhd_run_name + "_angle_interpolated.txt", std::ios::out | std::ios::app);
+    if (fs.is_open()) {
+        write_2dvector(fs, angle);
+        fs.close();
+    }
+
 
     fs.open(mhd_run_name + "_B_p_psi_interpolated.txt", std::ios::out | std::ios::app);
     if (fs.is_open()) {
@@ -236,8 +410,8 @@ void check_psi_interpolations(const std::string& mhd_run_name) {
     }
 }
 
-
-void run_on_simulations(const std::string& mhd_run_name, double n_scale, double gamma_min, bool anisotropic_s,
+void run_on_simulations(const std::string& mhd_run_name, double n_scale_nt, double n_scale_border,
+                        double gamma_min, bool anisotropic_s,
                         const std::string& particles_heating_model) {
 
     auto t1 = Clock::now();
@@ -270,32 +444,50 @@ void run_on_simulations(const std::string& mhd_run_name, double n_scale, double 
         // r & z in file are already in pc and we need in pc
         double z = all_points[i][0];
         double r_p = all_points[i][1];
+//        std::cout << "z[pc] = " << z << ", r_p[pc] = " << r_p << "\n";
         for (int j=0; j<n_circle; j++) {
-            double x = r_p*sin(j*2*pi/n_circle);
-            double y = r_p*cos(j*2*pi/n_circle);
+            double x = r_p*sin(j*2*M_PI/n_circle);
+            double y = r_p*cos(j*2*M_PI/n_circle);
             double length_ = sqrt(x*x + y*y + z*z);
             points.emplace_back(Point_3(x, y, z));
         }
     }
 
     Polyhedron P;
+    // FIXME: The problem is here
     CGAL::convex_hull_3(points.begin(), points.end(), P);
+    std::cout << "Debug"<< "\n";
+
     Tree tree(faces(P).first, faces(P).second, P);
     SimulationGeometry geometry(&tree);
 
+
     // Setting interpolation of Psi
-    Delaunay_triangulation tr_Psi;
+    Delaunay_triangulation tr_rPsi;
     // Triangulation for (z, r, Psi)
-    create_triangulation(mhd_run_name + "_Psi_field.txt", &tr_Psi);
+    create_triangulation(mhd_run_name + "_Psi_field.txt", &tr_rPsi);
+    // Interpolate Psi(z, r): given (z, r) returns (Psi)
+    SimulationInterpolater interp_rPsi(&tr_rPsi, 1.0);
+
+
+    Delaunay_triangulation tr_Psi;
+    // Triangulation for (Psi, r, Psi)
+    create_triangulation(mhd_run_name + "_Psi_field_psi.txt", &tr_Psi);
     // Interpolate Psi(z, r): given (z, r) returns (Psi)
     SimulationInterpolater interp_Psi(&tr_Psi, 1.0);
+
+
+    // Poloidal angle (in rad)
+    Delaunay_triangulation tr_poloidal_angle;
+    create_triangulation(mhd_run_name + "_theta_field_psi.txt", &tr_poloidal_angle);
+
 
     // Setting B-Field using simulations ===============================================================================
     Delaunay_triangulation tr_p;
     Delaunay_triangulation tr_fi;
     create_triangulation(mhd_run_name + "_B_p_field_psi.txt", &tr_p);
     create_triangulation(mhd_run_name + "_B_phi_field_psi.txt", &tr_fi);
-    SimulationBField bfield(&tr_Psi, &tr_p, &tr_fi, false);
+    SimulationBField bfield(&tr_rPsi, &tr_Psi, &tr_poloidal_angle, &tr_p, &tr_fi, false);
 //    std::vector<VectorBField*> vbfields;
 //    vbfields.push_back(&bfield);
 
@@ -305,15 +497,17 @@ void run_on_simulations(const std::string& mhd_run_name, double n_scale, double 
     Delaunay_triangulation tr_ncold;
     Delaunay_triangulation tr_Bsq;
     Delaunay_triangulation tr_jsq;
+    Delaunay_triangulation tr_sigma;
 
     create_triangulation(mhd_run_name + "_n_plasma_field_psi.txt", &tr_ncold);
     create_triangulation(mhd_run_name + "_jsq_plasma_field_psi.txt", &tr_jsq);
     create_triangulation(mhd_run_name + "_Bsq_plasma_field_psi.txt", &tr_Bsq);
+    create_triangulation(mhd_run_name + "_sigma_field_psi.txt", &tr_sigma);
 
 
 //    if(particles_heating_model == "n"){
 //        // Number of emitting particles ~ number of cold particles
-//        // In this case n_scale must be in [0, 1]
+//        // In this case n_scale_nt must be in [0, 1]
 //        create_triangulation(mhd_run_name + "_n_plasma_field_psi.txt", &tr_nt);
 //    }
 //    else if(particles_heating_model == "jsq") {
@@ -322,12 +516,12 @@ void run_on_simulations(const std::string& mhd_run_name, double n_scale, double 
 //    }
 //    else if(particles_heating_model == "bsq") {
 //        // Number of emitting particles ~ B_plasma^2
-//        // In this case n_scale must be in [0, 1].
+//        // In this case n_scale_nt must be in [0, 1].
 //        // u_e = n_nt * mc^2 * (s-1)/(s-2) * gamma_min = B^2/(8pi)
 //        double s = 2.5;
 //        // scale coefficient from B^2 to n_nt
 //        double n_nt_Bsq = (s - 2)/(s - 1)/(8*M_PI*m_e*c*c*gamma_min);
-//        n_scale *= n_nt_Bsq;
+//        n_scale_nt *= n_nt_Bsq;
 //        create_triangulation(mhd_run_name + "_Bsq_plasma_field_psi.txt", &tr_nt);
 //    } else {
 //        std::vector<string> implemented_heating_model_types{"bsq", "n", "jsq"};
@@ -339,27 +533,34 @@ void run_on_simulations(const std::string& mhd_run_name, double n_scale, double 
 //    }
 
     // Arbitrary heating model w/o any constrains on the NT particles number density
-//    SimulationNField nfield(&tr_nt, true, 2.5, gamma_min, anisotropic_s, n_scale);
+//    SimulationNField nfield(&tr_nt, true, 2.5, gamma_min, anisotropic_s, n_scale_nt);
 
     // Heating model with constrain that number density of NT particles can not exceed some fraction of number density
     // of the cold particles
-//    ConstrainedSimulationNField cnfield(&tr_nt, &tr_nt, true, 2.5, gamma_min, anisotropic_s, n_scale);
+//    ConstrainedSimulationNField cnfield(&tr_nt, &tr_nt, true, 2.5, gamma_min, anisotropic_s, n_scale_nt);
 
     // Heating model with constrain that number density of NT particles can not exceed some fraction of number density
     // of the cold particles AND heating efficiency is modulated by local magnetization as in Broderick+2010
     double max_frac_cold = 0.1;
     double s = 2.5;
-    ConstrainedSigmaSimulationNField nfield(&tr_ncold, &tr_Bsq, &tr_jsq, particles_heating_model, true,
-                                            s, gamma_min, anisotropic_s, n_scale, max_frac_cold);
+    std::string constrain_type;
+//    constrain_type = "sigma";
+    constrain_type = "none";
+    std::cout << "Particles heating supression : " << constrain_type << "\n";
+    // psi_mean - psi_width > 1 => no sheath!
+    ConstrainedBetaSimulationNField nfield(&tr_ncold, &tr_Bsq, &tr_jsq, &tr_sigma,
+                                           particles_heating_model, constrain_type, true,
+                                           s, gamma_min, anisotropic_s, n_scale_nt, n_scale_border, max_frac_cold,
+                                           0.5, 0.01);
 
     // Setting V-field using simulations ===============================================================================
     Delaunay_triangulation tr_Gamma;
     Delaunay_triangulation tr_beta_phi;
     create_triangulation(mhd_run_name + "_Gamma_field_psi.txt", &tr_Gamma);
     create_triangulation(mhd_run_name + "_beta_phi_field_psi.txt", &tr_beta_phi);
-    SimulationVField vfield(&tr_Psi, &tr_Gamma, &tr_beta_phi);
+    SimulationVField vfield(&tr_rPsi, &tr_Psi, &tr_poloidal_angle, &tr_Gamma, &tr_beta_phi);
 
-    Jet bkjet(&geometry, &interp_Psi, &vfield, &bfield, &nfield);
+    Jet bkjet(&geometry, &interp_rPsi, &vfield, &bfield, &nfield);
 
     // FIXME: Put inside frequency loop for dep. on frequency
     // FIXME: Make coarser grid for scale estimation
@@ -372,9 +573,9 @@ void run_on_simulations(const std::string& mhd_run_name, double n_scale, double 
     // From 0.001 pc/pixel - that is for z=0.02 pc
     // Non-uniform pixel from ``pixel_size_mas_start`` (near BH) to ``pixel_size_mas_stop`` (image edges)
     int number_of_pixels_along = 600;
-    int number_of_pixels_across = 200;
+    int number_of_pixels_across = 100;
     double pixel_size_mas_start = 0.01;
-    double pixel_size_mas_stop = 0.1;
+    double pixel_size_mas_stop = 0.05;
     // 86 Ghz
 //    int number_of_pixels_along = 600;
 //    int number_of_pixels_across = 600;
@@ -430,11 +631,12 @@ void run_on_simulations(const std::string& mhd_run_name, double n_scale, double 
         double tau_max = 10;
         double dt_max_pc = 0.01;
         double dt_max = pc*dt_max_pc;
-        double tau_min_log10 = -10.0;
+        double tau_min_log10 = -20.0;
         double tau_min = pow(10.,tau_min_log10);
         int n_ = 100;
 
-        string polarization = "I";
+//        string polarization = "I";
+        string polarization = "speed";
 
         for(int i_nu=0; i_nu < nu_observed_ghz.size(); i_nu++) {
 
@@ -465,11 +667,12 @@ void run_on_simulations(const std::string& mhd_run_name, double n_scale, double 
             oss << std::setprecision(8) << std::noshowpoint << nu_observed_ghz[i_nu];
             std::string freq_name = oss.str();
 
-            std::string file_tau, file_tau_fr, file_i, file_q, file_u, file_v, file_l;
+            std::string file_tau, file_tau_fr, file_i, file_beta, file_q, file_u, file_v, file_l;
             if(jet_side) {
                 file_tau = mhd_run_name + "_jet_image_tau_" + freq_name + ".txt";
                 file_tau_fr = mhd_run_name + "_jet_image_taufr_" + freq_name + ".txt";
                 file_i = mhd_run_name + "_jet_image_i_" + freq_name + ".txt";
+                file_beta = mhd_run_name + "_jet_image_beta_app_" + freq_name + ".txt";
                 file_q = mhd_run_name + "_jet_image_q_" + freq_name + ".txt";
                 file_u = mhd_run_name + "_jet_image_u_" + freq_name + ".txt";
                 file_v = mhd_run_name + "_jet_image_v_" + freq_name + ".txt";
@@ -478,6 +681,7 @@ void run_on_simulations(const std::string& mhd_run_name, double n_scale, double 
                 file_tau = mhd_run_name + "_cjet_image_tau_" + freq_name + ".txt";
                 file_tau_fr = mhd_run_name + "_cjet_image_taufr_" + freq_name + ".txt";
                 file_i = mhd_run_name + "_cjet_image_i_" + freq_name + ".txt";
+                file_beta = mhd_run_name + "_cjet_image_beta_app_" + freq_name + ".txt";
                 file_q = mhd_run_name + "_cjet_image_q_" + freq_name + ".txt";
                 file_u = mhd_run_name + "_cjet_image_u_" + freq_name + ".txt";
                 file_v = mhd_run_name + "_cjet_image_v_" + freq_name + ".txt";
@@ -486,6 +690,7 @@ void run_on_simulations(const std::string& mhd_run_name, double n_scale, double 
 
             // Remove old file
             std::remove(file_i.c_str());
+            std::remove(file_beta.c_str());
             std::remove(file_q.c_str());
             std::remove(file_u.c_str());
             std::remove(file_v.c_str());
@@ -509,6 +714,23 @@ void run_on_simulations(const std::string& mhd_run_name, double n_scale, double 
             if (fs.is_open()) {
                 write_2dvector(fs, image_l, pc);
                 fs.close();
+            }
+
+            if (polarization == "speed") {
+                value = "SPEED";
+                auto image_beta_app = observation.getImage(value);
+                // Scale emission weighted beta_app on total intensity in given pixel
+                for (unsigned long int i = 0; i < image_beta_app.size(); ++i) {
+                    for (unsigned long int j = 0; j < image_beta_app[i].size(); ++j) {
+                        // ``image_i`` was already devided by scales. Need to recover the original intensities.
+                        image_beta_app[i][j] = image_beta_app[i][j]/(image_i[i][j]*scales[i][j]);
+                    }
+                }
+                fs.open(file_beta, std::ios::out | std::ios::app);
+                if (fs.is_open()) {
+                    write_2dvector(fs, image_beta_app);
+                    fs.close();
+                }
             }
 
             if (polarization == "full") {
@@ -579,27 +801,29 @@ void run_on_simulations(const std::string& mhd_run_name, double n_scale, double 
 
 int main(int argc, char *argv[]) {
 
-    std::vector<string> implemented_heating_model_types{"bsq", "n", "jsq"};
+    std::vector<string> implemented_heating_model_types{"bsq", "n", "jsq", "byhand"};
 
-    if(argc != 6){
+    if(argc != 7){
         std::cout << argc << "\n";
-        std::cout << "Supply MHD code, density scale factor (0 < f [< 1]), 1 <= gamma_min, bool anisotropic_s, particles heating model\n" << "\n";
+        std::cout << "Supply MHD code, NT density scale factor (0 < f [< 1]), NT border density scale factor (0 < f [< 1]), 1 <= gamma_min, bool anisotropic_s, particles heating model\n" << "\n";
         return 1;
     }
     else {
         std::cout << "Doing radiation transport for MHD code " << argv[1] << "\n";
-        double n_scale = atof(argv[2]);
+        double n_scale_nt = atof(argv[2]);
         std::cout << "scaling factor for NT particles density = " << argv[2] << "\n";
-        double gamma_min = atof(argv[3]);
-        std::cout << "gamma_min = " << argv[3] << "\n";
+        double n_scale_border = atof(argv[3]);
+        std::cout << "scaling factor for NT particles density at the border = " << argv[3] << "\n";
+        double gamma_min = atof(argv[4]);
+        std::cout << "gamma_min = " << argv[4] << "\n";
 
         bool anisotropic_s;
-        std::istringstream is(argv[4]);
+        std::istringstream is(argv[5]);
         is >> std::boolalpha >> anisotropic_s;
-        std::cout << "Anisotropic s = " << argv[4] << "\n";
+        std::cout << "Anisotropic s = " << argv[5] << "\n";
 
-        std::string particles_heating_model = argv[5];
-        std::cout << "Particles heating model = " << argv[5] << "\n";
+        std::string particles_heating_model = argv[6];
+        std::cout << "Particles heating model = " << argv[6] << "\n";
         // Check that particles heating model is implemented. This check is also done inside ``run_on_simulations``
         if (std::find(implemented_heating_model_types.begin(),
                       implemented_heating_model_types.end(),
@@ -607,11 +831,14 @@ int main(int argc, char *argv[]) {
         {
             throw NotImplmentedParticlesHeating(particles_heating_model);
         }
-        run_on_simulations(argv[1], n_scale, gamma_min, anisotropic_s, particles_heating_model);
+        run_on_simulations(argv[1], n_scale_nt, n_scale_border, gamma_min, anisotropic_s, particles_heating_model);
     }
 
+    // From IDE
+//    run_on_simulations("m1s10g2b123.971372r0.000369", 0.05, 0.0, 100, false, "bsq");
 
-//    check_interpolations("psi10");
-//    check_psi_interpolations("core");
+//    check_psi_interpolations_Lena("m1s10g2b123.971372r0.000369");
+//    check_psi_interpolations_Lena("m2s10g2b44.614955r0.000595");
+//    check_psi_interpolations("eta");
     return 0;
 }

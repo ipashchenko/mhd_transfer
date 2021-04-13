@@ -5,8 +5,16 @@
 
 using Eigen::Vector3d;
 
-SimulationVField::SimulationVField(Delaunay_triangulation *tr_psi, Delaunay_triangulation *tr_Gamma, Delaunay_triangulation *tr_beta_phi) :
-        interp_psi_(tr_psi, 1.0), interp_Gamma_(tr_Gamma, 1.0), interp_beta_phi_(tr_beta_phi, 0.0) {}
+SimulationVField::SimulationVField(Delaunay_triangulation *tr_rpsi,
+                                   Delaunay_triangulation *tr_psi,
+                                   Delaunay_triangulation *tr_poloidal_angle,
+                                   Delaunay_triangulation *tr_Gamma,
+                                   Delaunay_triangulation *tr_beta_phi) :
+        interp_rpsi_(tr_rpsi, 1.0),
+        interp_psi_(tr_psi, 1.0),
+        interp_polangle_(tr_poloidal_angle, 0.0),
+        interp_Gamma_(tr_Gamma, 1.0),
+        interp_beta_phi_(tr_beta_phi, 0.0) {}
 
 Vector3d SimulationVField::vf(const Vector3d &point, double psi) const {
 
@@ -26,12 +34,17 @@ Vector3d SimulationVField::vf(const Vector3d &point, double psi) const {
     double v_phi = c*interp_beta_phi_.interpolated_value({psi, z/pc});
     double v_pol = sqrt(v_tot*v_tot - v_phi*v_phi);
 
-    // Find direction of the poloidal component
-    Vector2d gradPsi = interp_psi_.gradient({hypot(x, y)/pc, z/pc});
-    gradPsi.normalize();
-    // sin & cos of angle between the poloidal component and z-axis
-    double sinz = gradPsi[0];
-    double cosz = gradPsi[1];
+//    // Find direction of the poloidal component
+//    Vector2d gradPsi = interp_psi_.gradient({hypot(x, y)/pc, z/pc}, interp_psi_);
+//    gradPsi.normalize();
+//    // sin & cos of angle between the poloidal component and z-axis
+//    double sinz = gradPsi[0];
+//    double cosz = gradPsi[1];
+
+    double polangle = interp_polangle_.interpolated_value({psi, z/pc});
+    double sinz = sin(polangle);
+    double cosz = cos(polangle);
+
     Vector3d V_p;
     if(z > 0 ){
         V_p = {v_pol*sinz*cos(phi), v_pol*sinz*sin(phi), v_pol*cosz};

@@ -65,10 +65,16 @@ Vector3d VectorBField::bhat_lab_frame(const Vector3d &point, double psi, Vector3
     }
 }
 
-SimulationBField::SimulationBField(Delaunay_triangulation *tr_psi, Delaunay_triangulation *tr_p, Delaunay_triangulation *tr_fi,
+SimulationBField::SimulationBField(Delaunay_triangulation *tr_rpsi,
+                                   Delaunay_triangulation *tr_psi,
+                                   Delaunay_triangulation *tr_poloidal_angle,
+                                   Delaunay_triangulation *tr_p,
+                                   Delaunay_triangulation *tr_fi,
                                    bool in_plasma_frame, double tangled_fraction) :
         VectorBField(in_plasma_frame, tangled_fraction, nullptr, nullptr),
+        interp_rpsi_(tr_rpsi, 1.0),
         interp_psi_(tr_psi, 1.0),
+        interp_polangle_(tr_poloidal_angle, 0.0),
         interp_p_(tr_p, 0.0),
         interp_fi_(tr_fi, 0.0) {}
 
@@ -81,17 +87,20 @@ Vector3d SimulationBField::_bf(const Vector3d &point, double psi) const {
     if(phi < 0){
         phi += 2.0*M_PI;
     }
-    // FIXME: Only z-component - need to find angle to z-axis!
     double interpolated_value_p = interp_p_.interpolated_value({psi, z/pc});
     double interpolated_value_fi = interp_fi_.interpolated_value({psi, z/pc});
 
-    // FInd direction of the poloidal component
-    Vector2d gradPsi = interp_psi_.gradient({hypot(x, y)/pc, z/pc});
-    gradPsi.normalize();
-    // sin & cos of angle between the poloidal component and z-axis
-    // This is
-    double sinz = abs(gradPsi[1]);
-    double cosz = abs(gradPsi[0]);
+//    // Find direction of the poloidal component
+//    Vector2d gradPsi = interp_rpsi_.gradient({hypot(x, y)/pc, z/pc}, interp_psi_);
+//    gradPsi.normalize();
+//    // sin & cos of angle between the poloidal component and z-axis
+//    // This is
+//    double sinz = abs(gradPsi[1]);
+//    double cosz = abs(gradPsi[0]);
+
+    double polangle = interp_polangle_.interpolated_value({psi, z/pc});
+    double sinz = sin(polangle);
+    double cosz = cos(polangle);
 
 //    std::cout << "r_p = " << hypot(x, y)/pc << ", z = " << z/pc << "\n";
 //    std::cout << "Sin = " << sinz << "\n";

@@ -46,6 +46,45 @@ void I::operator()(const double &x, double &dxdt, const double t) {
 }
 
 
+void Speed::operator()(const double &x, double &dxdt, const double t) {
+    Vector3d point = point_in + t * ray_direction;
+
+    // If negative Stokes I resulted from previous step, remember its value to compensate for
+    double compensate_negative_I = 0.0;
+    if(x < 0) {
+        compensate_negative_I = -x;
+    }
+
+    double k_i, eta_i;
+    std::tie(k_i, eta_i) = jet->get_stokes_I_transport_coefficients(point, ray_direction, nu);
+
+    dxdt = eta_i - k_i*(x+compensate_negative_I);
+
+    // This adds to previous step Stokes I, so add value that compensating negative Stokes I from previous step
+    dxdt += compensate_negative_I;
+
+    // Calculate apparent speed
+    double psi = jet->getPsi(point);
+    Vector3d beta = jet->getV(point, psi)/c;
+    // LOS angle is angle between the bulk motion speed and the local ``ray_direction`` (that goes from far side of the
+    // source to the observer).
+    double cosLOS = beta.dot(ray_direction)/beta.norm();
+    double sinLOS = sqrt(1 - cosLOS*cosLOS);
+//    std::cout << "cosLOS = " << cosLOS << ", sinLOS = " << sinLOS << "\n";
+    double beta_app = beta.norm()*sinLOS / (1. - beta.norm()*cosLOS);
+//    std::cout << "beta_app = " << beta_app << "\n";
+    if(isnan(beta_app)) {
+        beta_app = 0.0;
+//        std::cout << "beta_app = NAN!" << "\n";
+//        std::cout << "sinLOS = " << sinLOS << "\n";
+//        std::cout << "beta = " << beta << "\n";
+//        std::cout << "Psi = " << psi << "\n";
+    }
+
+    dxdt *= beta_app;
+}
+
+
 FullStokes::FullStokes(Jet *newjet, Vector3d &newpoint_in,
                        Vector3d &newray_direction, double newnu) {
 	jet = newjet;
@@ -150,3 +189,43 @@ void FullStokes::operator()(const state_type &x, state_type &dxdt,
 bool check_opt_depth(double tau_max, const double &x) {
     return x >= tau_max;
 }
+
+
+
+
+
+//class push_back_state_and_time
+//{
+//    public:
+//        push_back_state_and_time(std::vector<state_type> &states,
+//                                 std::vector<double> &times,
+//                                 std::vector<double> &P_0,
+//                                 Jet* new_jet) :
+//                counter(0),
+//                m_states(states),
+//                m_times(times),
+//                m_P_cur(P_0)
+//        {
+//            jet = new_jet;
+//        }
+//        void operator()(const state_type &x, double t)
+//        {
+//            if(std::isnan(x[0])) {
+//                throw JetBorderException();
+//            }
+//            //m_states.clear();
+//            //m_times.clear();
+//            m_states.push_back(x);
+//            m_times.push_back(t);
+//
+//            double p_cur = solver->get_P0(x, t);
+//            m_P_cur.push_back(p_cur);
+//
+//        }
+//    private:
+//        std::vector<state_type>& m_states;
+//        std::vector<double>& m_times;
+//        std::vector<double>& m_P_cur;
+//        Jet* jet;
+//        size_t counter;
+//};

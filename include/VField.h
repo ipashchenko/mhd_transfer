@@ -17,14 +17,21 @@ class VField {
 
 class SimulationVField: public VField {
     public:
-        explicit SimulationVField(Delaunay_triangulation *tr_psi, Delaunay_triangulation *tr_Gamma, Delaunay_triangulation *tr_beta_phi);
+        explicit SimulationVField(Delaunay_triangulation *tr_rpsi,
+                                  Delaunay_triangulation *tr_psi,
+                                  Delaunay_triangulation *tr_poloidal_angle,
+                                  Delaunay_triangulation *tr_Gamma,
+                                  Delaunay_triangulation *tr_beta_phi);
         Vector3d vf(const Vector3d& point, double psi) const override;
 
     private:
         // Interpolators from (Psi, z)
         SimulationInterpolater interp_Gamma_;
         SimulationInterpolater interp_beta_phi_;
-        // For calculating direction of the poloidal component we need Psi(r_p, z)
+        // Already calculated poloidal angle interpolation
+        SimulationInterpolater interp_polangle_;
+        // For calculating direction of the poloidal component we need both Psi(r_p, z) and Psi(Psi, z)
+        SimulationInterpolater interp_rpsi_;
         SimulationInterpolater interp_psi_;
 };
 

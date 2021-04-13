@@ -69,6 +69,10 @@ double getG(Vector3d &v) {
 
 double getD(Vector3d &n_los, Vector3d &v) {
     Vector3d beta = v/c;
+    double angle = acos(beta.dot(n_los))*180.0/M_PI;
+    if(angle < 3.0){
+        std::cout << "LOS angle = " << angle << "\n";
+    }
     return 1./(getG(v)*(1.-beta.dot(n_los)));
 }
 
@@ -181,4 +185,10 @@ void read_from_txt(const std::string& fntxt, std::vector< std::vector<double> >&
     {
         properties.push_back(row);
     }
+}
+
+
+double generalized1_gaussian1d(double x, double loc, double scale, double shape) {
+//    return shape/(2*scale*tgamma(1/shape))*exp(-pow(abs(x-loc)/scale, shape));
+    return exp(-pow(abs(x-loc)/scale, shape));
 }

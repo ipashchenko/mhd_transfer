@@ -24,6 +24,9 @@ class Observation {
 		void integrate_i_adaptive(std::list<Intersection>& list_intersect, const Vector3d& ray_direction, const double nu,
 		                          int n, double& background_I, double dt_max);
 
+        void integrate_speed_adaptive(std::list<Intersection>& list_intersect, const Vector3d& ray_direction, const double nu,
+                                      int n, double& emm_weighted_beta_app, double dt_max);
+
         void integrate_full_stokes(std::list<Intersection>& list_intersect, const Vector3d& ray_direction, const double nu,
                                    int n, std::vector<double>& background, double dt_max);
 
