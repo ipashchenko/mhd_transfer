@@ -195,8 +195,8 @@ class ConstrainedBetaSimulationNField: public PowerLawNField {
                                         std::string constrain_type,
                                         bool in_plasma_frame, double s, double gamma_min, bool changing_s=false,
                                         double scale_factor_nt=1.0,
-                                        double scale_factor_border=0.0,
                                         double max_frac_cold=1.0,
+                                        double scale_factor_border=0.0,
                                         double psi_mean = 1.0,
                                         double psi_width = 0.1);
         double _nf(const Vector3d &point, double psi) const override;
@@ -204,10 +204,11 @@ class ConstrainedBetaSimulationNField: public PowerLawNField {
     private:
         std::string particles_heating_model_;
         std::string constrain_type_;
-        // Scale factor for NT particles density. Can be arbitrary (e.g. in ``j^2`` heating model), can be (0, 1)-bounded
-        // (e.g. in ``n`` or ``B^2`` model)
+        // Scale factor for any of the model heating mechanisms NT particles density. Can be arbitrary (e.g. in ``jsq``
+        // or ``byhand`` heating model), can be (0, 1)-bounded (e.g. in ``n`` or ``bsq`` model)
         double scale_factor_nt_;
-        // Scale factor for NT particles density at the border (0, 1).
+        // Scale factor for NT particles density at the border (0, 1). It modifies underlying NT-density from one of the
+        // model heating mechanism.
         double scale_factor_border_;
         // (0, 1) Maximal fraction of the cold particles that can be heated.
         double max_frac_cold_;
@@ -219,6 +220,33 @@ class ConstrainedBetaSimulationNField: public PowerLawNField {
         SimulationInterpolater interp_jsq_;
         SimulationInterpolater interp_sigma_;
 
+};
+
+
+class ByHandSimulationNField: public PowerLawNField {
+    public:
+        ByHandSimulationNField(Delaunay_triangulation *tr_cold,
+                               bool in_plasma_frame, double s, double gamma_min, bool changing_s=false,
+                               double max_frac_cold=1.0,
+                               double scale_factor_border=1.0,
+                               double psi_mean = 1.0,
+                               double psi_width = 0.1,
+                               double constant_floor_scale = 0.0,
+                               double n = 1.0);
+        double _nf(const Vector3d &point, double psi) const override;
+
+    private:
+        // Scale factor for NT particles density at the border (0, 1).
+        double scale_factor_border_;
+        // (0, 1) Maximal fraction of the cold particles that can be heated.
+        double max_frac_cold_;
+        // Psi of border NT particles density enhancement: mean (0, 1) and width of Gaussian profile
+        double psi_mean_;
+        double psi_width_;
+        // Constant additive number density amplitude
+        double constant_floor_scale_;
+        double n_;
+        SimulationInterpolater interp_cold_;
 };
 
 #endif //MHD_TRANSFER_NFIELD_H

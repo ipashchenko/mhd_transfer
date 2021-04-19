@@ -391,8 +391,8 @@ ConstrainedBetaSimulationNField::ConstrainedBetaSimulationNField(Delaunay_triang
                                                                  bool in_plasma_frame, double s, double gamma_min,
                                                                  bool changing_s,
                                                                  double scale_factor_nt,
-                                                                 double scale_factor_border,
                                                                  double max_frac_cold,
+                                                                 double scale_factor_border,
                                                                  double psi_mean,
                                                                  double psi_width) :
         PowerLawNField(in_plasma_frame, s, gamma_min, nullptr, "pairs", changing_s, 0.0),
@@ -432,21 +432,17 @@ double ConstrainedBetaSimulationNField::_nf(const Vector3d &point, double psi) c
 
     // Number of cold particles in plasma frame
     double n_cold = interp_cold_.interpolated_value({psi, z/pc});
-    double n_nt_border = scale_factor_border_ * amp * n_cold;
+    // Maximum number of cold particles that can be heated
+    double n_cold_max = max_frac_cold_*n_cold;
 
     // Squared magnetic field in plasma frame
-    double Bsq = interp_Bsq_.interpolated_value({psi, z/pc});
+    double Bsq;
+    if(constrain_type_ == "beta" || particles_heating_model_ == "bsq") {
+        Bsq = interp_Bsq_.interpolated_value({psi, z/pc});
+    }
 
-//    if(1/inv_sigma > 1.0) {
-//        std::cout << "sigma = " << 1./inv_sigma << " at Psi = " << psi << "at z_pc = " << z/pc << "\n";
-//    }
-//    if(z/pc > 4.0) {
-//        std::cout << "z_pc = " << z/pc << " with sigma = " << 1./inv_sigma << "\n";
-//    }
-//    if(r_p < 0.01) {
-//        std::cout << "r_p = " << r_p << ", z = " << z/pc << " with sigma = " << 1./inv_sigma << "\n";
-//    }
 
+    // NT particles heating can be reduced in some regions
     double suppression_factor;
     if(constrain_type_ == "beta") {
         // Local inverse sigma
@@ -456,54 +452,111 @@ double ConstrainedBetaSimulationNField::_nf(const Vector3d &point, double psi) c
     }
     else if(constrain_type_ == "sigma") {
         double sigma = interp_sigma_.interpolated_value({psi, z/pc});
+        // Lena's suggestion
         suppression_factor = 1./(1. + exp(1./sigma));
-//        if(suppression_factor < 0.005) {
-//            std::cout << "Supfactor = " << suppression_factor << " At r_p[pc] = " << r_p << ", z[pc] = " << z/pc << "\n";
-//        }
     }
     else if(constrain_type_ == "none") {
+        // No modifications
         suppression_factor = 1.0;
     }
     else {
         throw NotImplmentedHeatingSuppression(constrain_type_);
     }
 
-//    std::cout << "sigma suppression factor = " << sigma_suppression_factor << "\n";
-
-    // Maximum number of cold particles that can be heated
-    double n_cold_max = max_frac_cold_*n_cold;
+    double n_nt_border;
 
     if(particles_heating_model_ == "n"){
         // Number of emitting particles ~ number of cold particles
         // In this case ``scale_factor_nt_`` - efficiency of cold particles heating - must be in [0, 1]
-        n_nt = scale_factor_nt_*n_cold*suppression_factor;
+//        n_nt = scale_factor_nt_*n_cold*suppression_factor;
+        n_nt = n_cold*suppression_factor;
     }
     else if(particles_heating_model_ == "bsq") {
         // Number of emitting particles ~ B_plasma^2
         // In this case ``scale_factor_nt_`` must be in [0, 1]. It is efficiency with which magnetic energy is converted
-        // into that of nonthermal particles.
+        // into that of non-thermal particles.
         // From the relation:
         // u_e = n_nt * mc^2 * (s-1)/(s-2) * gamma_min = B^2/(8pi) * sigma_suppression_factor
         // the scale coefficient from B^2 to n_nt is:
         double n_nt_Bsq = suppression_factor*(s_ - 2)/(s_ - 1)/(8*M_PI*m_e*c*c*gamma_min_);
-        n_nt = scale_factor_nt_*n_nt_Bsq*Bsq;
+//        n_nt = scale_factor_nt_*n_nt_Bsq*Bsq;
+        n_nt = n_nt_Bsq*Bsq;
     }
     else if(particles_heating_model_ == "jsq") {
         // Number of emitting particles ~ j_plasma^2. ``scale_factor_nt_`` is arbitrary positive number.
-        n_nt = scale_factor_nt_*interp_jsq_.interpolated_value({psi, z/pc})*suppression_factor;
+//        n_nt = scale_factor_nt_*interp_jsq_.interpolated_value({psi, z/pc})*suppression_factor;
+        n_nt = interp_jsq_.interpolated_value({psi, z/pc})*suppression_factor;
     }
+    // FIXME: This is rather unrealistic because NT particles density doesn't change with distance along the jet.
     else if(particles_heating_model_ == "byhand") {
-        n_nt = 0.0;
+        n_nt = 1.0;
     }
     else {
         throw NotImplmentedParticlesHeating(particles_heating_model_);
     }
 
-    // Number of nonthermal particles can't be larger than some fraction (``max_frac_cold_``) of all cold particles
+    // Artificial humps:
+    n_nt_border = scale_factor_border_ * amp * n_nt;
+    // Model heating:
+    // From model heating. Here ``scale_factor_nt_`` must be [0, 1] for heating models ``n``, ``bsq``; any positive
+    // number for ``jsq``, ``byhand``.
+    n_nt = scale_factor_nt_ * n_nt;
+
+    // Number of non-thermal particles can't be larger than some fraction (``max_frac_cold_``) of all cold particles
     if(n_nt + n_nt_border > n_cold_max) {
         std::cout << "Number of NT particles can't be larger than number of cold particles!" << std::endl;
         return n_cold_max;
     }else {
         return n_nt + n_nt_border;
+    }
+};
+
+
+ByHandSimulationNField::ByHandSimulationNField(Delaunay_triangulation *tr_cold,
+                                               bool in_plasma_frame, double s, double gamma_min,
+                                               bool changing_s,
+                                               double max_frac_cold,
+                                               double scale_factor_border,
+                                               double psi_mean,
+                                               double psi_width,
+                                               double constant_floor_scale,
+                                               double n) :
+        PowerLawNField(in_plasma_frame, s, gamma_min, nullptr, "pairs", changing_s, 0.0),
+        interp_cold_(tr_cold),
+        scale_factor_border_(scale_factor_border),
+        max_frac_cold_(max_frac_cold),
+        psi_mean_(psi_mean),
+        psi_width_(psi_width),
+        constant_floor_scale_(constant_floor_scale),
+        n_(n) {}
+
+double ByHandSimulationNField::_nf(const Vector3d &point, double psi) const {
+    double z = point[2];
+
+    // Outer ridge
+    // Step profile
+//    double amp;
+//    if(abs(psi - psi_mean_) < psi_width_){
+//        amp = 1.0;
+//    }else {
+//        amp = 0.0;
+//    }
+    // Generalized Gaussian profile with maximum equal to 1.0 at ``psi_mean_``
+    double amp = generalized1_gaussian1d(psi, psi_mean_, psi_width_, 2);
+
+    // Number of cold particles in plasma frame at current given point
+    double n_cold = interp_cold_.interpolated_value({psi, z/pc});
+    double n_nt_border = scale_factor_border_ * amp * pow(z/pc, -n_);
+    double n_nt_const = constant_floor_scale_ * pow(z/pc, -n_);
+
+    // Maximum number of cold particles that can be heated
+    double n_cold_max = max_frac_cold_*n_cold;
+
+    // Number of non-thermal particles can't be larger than some fraction (``max_frac_cold_``) of all cold particles
+    if(n_nt_border + n_nt_const > n_cold_max) {
+        std::cout << "Number of NT particles can't be larger than number of cold particles!" << std::endl;
+        return n_cold_max;
+    }else {
+        return n_nt_border + n_nt_const;
     }
 };

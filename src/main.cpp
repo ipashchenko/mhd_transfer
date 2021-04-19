@@ -410,9 +410,10 @@ void check_psi_interpolations(const std::string& mhd_run_name) {
     }
 }
 
-void run_on_simulations(const std::string& mhd_run_name, double n_scale_nt, double n_scale_border,
-                        double gamma_min, bool anisotropic_s,
-                        const std::string& particles_heating_model) {
+std::vector<double> run_on_simulations(const std::string& mhd_run_name, double n_scale_nt, double n_scale_border,
+                                       double gamma_min, bool anisotropic_s,
+                                       const std::string& particles_heating_model,
+                                       double Psi_c, double sigma_Psi, double relerr) {
 
     auto t1 = Clock::now();
     std::clock_t start;
@@ -426,6 +427,7 @@ void run_on_simulations(const std::string& mhd_run_name, double n_scale_nt, doub
 //    std::vector<double> nu_observed_ghz{15.4, 8.1};
 //    std::vector<double> nu_observed_ghz{86.0};
     std::vector<double> nu_observed_ghz{15.4};
+    std::vector<double> total_fluxes;
     // Frequencies in the BH frame in Hz
     std::vector<double> nu_bh;
     for(auto nu_obs_ghz : nu_observed_ghz) {
@@ -548,10 +550,12 @@ void run_on_simulations(const std::string& mhd_run_name, double n_scale_nt, doub
     constrain_type = "none";
     std::cout << "Particles heating supression : " << constrain_type << "\n";
     // psi_mean - psi_width > 1 => no sheath!
-    ConstrainedBetaSimulationNField nfield(&tr_ncold, &tr_Bsq, &tr_jsq, &tr_sigma,
-                                           particles_heating_model, constrain_type, true,
-                                           s, gamma_min, anisotropic_s, n_scale_nt, n_scale_border, max_frac_cold,
-                                           0.5, 0.01);
+//    ConstrainedBetaSimulationNField nfield(&tr_ncold, &tr_Bsq, &tr_jsq, &tr_sigma,
+//                                           particles_heating_model, constrain_type, true,
+//                                           s, gamma_min, anisotropic_s, n_scale_nt, max_frac_cold, n_scale_border,
+//                                           0.5, 0.01);
+    ByHandSimulationNField nfield(&tr_ncold, true, s, gamma_min, anisotropic_s,
+                                  max_frac_cold, n_scale_border, Psi_c, sigma_Psi, n_scale_nt);
 
     // Setting V-field using simulations ===============================================================================
     Delaunay_triangulation tr_Gamma;
@@ -645,17 +649,22 @@ void run_on_simulations(const std::string& mhd_run_name, double n_scale_nt, doub
             } else {
                 std::cout << "Running transfer for frequency " << nu_observed_ghz[i_nu] << " GHz for counter-jet" << std::endl;
             }
-
-            observation.run(n_, tau_max, dt_max, tau_min, nu_bh[i_nu], polarization);
+            observation.run(n_, tau_max, dt_max, tau_min, nu_bh[i_nu], polarization, relerr);
             string value = "tau";
             auto image_tau = observation.getImage(value);
 
             value = "I";
             auto image_i = observation.getImage(value);
+            double total_flux = 0.0;
             for (unsigned long int i = 0; i < image_i.size(); ++i) {
                 for (unsigned long int j = 0; j < image_i[i].size(); ++j) {
                     image_i[i][j] = image_i[i][j]/scales[i][j];
+                    total_flux += image_i[i][j];
                 }
+            }
+
+            if(jet_side == true){
+                total_fluxes.push_back(total_flux);
             }
 
             value = "l";
@@ -667,16 +676,18 @@ void run_on_simulations(const std::string& mhd_run_name, double n_scale_nt, doub
             oss << std::setprecision(8) << std::noshowpoint << nu_observed_ghz[i_nu];
             std::string freq_name = oss.str();
 
+            std::string prefix = "_psi_" + std::to_string(Psi_c) + "_dpsi_" + std::to_string(sigma_Psi);
+
             std::string file_tau, file_tau_fr, file_i, file_beta, file_q, file_u, file_v, file_l;
             if(jet_side) {
-                file_tau = mhd_run_name + "_jet_image_tau_" + freq_name + ".txt";
-                file_tau_fr = mhd_run_name + "_jet_image_taufr_" + freq_name + ".txt";
-                file_i = mhd_run_name + "_jet_image_i_" + freq_name + ".txt";
-                file_beta = mhd_run_name + "_jet_image_beta_app_" + freq_name + ".txt";
-                file_q = mhd_run_name + "_jet_image_q_" + freq_name + ".txt";
-                file_u = mhd_run_name + "_jet_image_u_" + freq_name + ".txt";
-                file_v = mhd_run_name + "_jet_image_v_" + freq_name + ".txt";
-                file_l = mhd_run_name + "_jet_image_l_" + freq_name + ".txt";
+                file_tau = mhd_run_name + prefix + "_jet_image_tau_" + freq_name + ".txt";
+                file_tau_fr = mhd_run_name + prefix + "_jet_image_taufr_" + freq_name + ".txt";
+                file_i = mhd_run_name + prefix + "_jet_image_i_" + freq_name + ".txt";
+                file_beta = mhd_run_name + prefix + "_jet_image_beta_app_" + freq_name + ".txt";
+                file_q = mhd_run_name + prefix + "_jet_image_q_" + freq_name + ".txt";
+                file_u = mhd_run_name + prefix + "_jet_image_u_" + freq_name + ".txt";
+                file_v = mhd_run_name + prefix + "_jet_image_v_" + freq_name + ".txt";
+                file_l = mhd_run_name + prefix + "_jet_image_l_" + freq_name + ".txt";
             } else {
                 file_tau = mhd_run_name + "_cjet_image_tau_" + freq_name + ".txt";
                 file_tau_fr = mhd_run_name + "_cjet_image_taufr_" + freq_name + ".txt";
@@ -796,34 +807,56 @@ void run_on_simulations(const std::string& mhd_run_name, double n_scale_nt, doub
               << std::chrono::duration_cast<std::chrono::seconds>(
                   t2 - t1).count()
               << " s" << std::endl;
+
+    return total_fluxes;
 }
 
 
+// To run in parallel:
+// parallel --files --results result_{1}_amp{2}_loc{2}_width{3} --joblog log --jobs 3 -a params.txt -n 6 -m  --colsep ' ' "./mhd_transfer"
 int main(int argc, char *argv[]) {
 
+    bool anisotropic_s = false;
+    std::string particles_heating_model = "byhand";
+    double gamma_min = 100.0;
+
     std::vector<string> implemented_heating_model_types{"bsq", "n", "jsq", "byhand"};
+    std::vector<double> total_fluxes;
 
     if(argc != 7){
         std::cout << argc << "\n";
-        std::cout << "Supply MHD code, NT density scale factor (0 < f [< 1]), NT border density scale factor (0 < f [< 1]), 1 <= gamma_min, bool anisotropic_s, particles heating model\n" << "\n";
+        std::cout << "Supply MHD code, NT density scale factor (0 < f [< 1]), NT border density scale factor (0 < f [< 1]),"
+                     " central Psi, width Psi, rel.error\n" << "\n";
         return 1;
     }
     else {
         std::cout << "Doing radiation transport for MHD code " << argv[1] << "\n";
+
         double n_scale_nt = atof(argv[2]);
         std::cout << "scaling factor for NT particles density = " << argv[2] << "\n";
+
         double n_scale_border = atof(argv[3]);
         std::cout << "scaling factor for NT particles density at the border = " << argv[3] << "\n";
-        double gamma_min = atof(argv[4]);
-        std::cout << "gamma_min = " << argv[4] << "\n";
 
-        bool anisotropic_s;
-        std::istringstream is(argv[5]);
-        is >> std::boolalpha >> anisotropic_s;
-        std::cout << "Anisotropic s = " << argv[5] << "\n";
+        double Psi_c = atof(argv[4]);
+        std::cout << "Psi_c = " << argv[4] << "\n";
 
-        std::string particles_heating_model = argv[6];
-        std::cout << "Particles heating model = " << argv[6] << "\n";
+        double sigma_Psi = atof(argv[5]);
+        std::cout << "sigma_Psi = " << argv[5] << "\n";
+
+        double relerr = atof(argv[6]);
+        std::cout << "relerr = " << argv[6] << "\n";
+
+//        double gamma_min = atof(argv[4]);
+//        std::cout << "gamma_min = " << argv[4] << "\n";
+
+//        bool anisotropic_s;
+//        std::istringstream is(argv[5]);
+//        is >> std::boolalpha >> anisotropic_s;
+//        std::cout << "Anisotropic s = " << argv[5] << "\n";
+
+//        std::string particles_heating_model = argv[5];
+//        std::cout << "Particles heating model = " << argv[5] << "\n";
         // Check that particles heating model is implemented. This check is also done inside ``run_on_simulations``
         if (std::find(implemented_heating_model_types.begin(),
                       implemented_heating_model_types.end(),
@@ -831,11 +864,17 @@ int main(int argc, char *argv[]) {
         {
             throw NotImplmentedParticlesHeating(particles_heating_model);
         }
-        run_on_simulations(argv[1], n_scale_nt, n_scale_border, gamma_min, anisotropic_s, particles_heating_model);
+        total_fluxes = run_on_simulations(argv[1], n_scale_nt, n_scale_border, gamma_min,
+                                          anisotropic_s, particles_heating_model, Psi_c, sigma_Psi, relerr);
     }
+    for(auto total_flux: total_fluxes){
+        std::cout << "Total flux [Jy] = " << total_flux << "\n";
+    }
+
 
     // From IDE
 //    run_on_simulations("m1s10g2b123.971372r0.000369", 0.05, 0.0, 100, false, "bsq");
+
 
 //    check_psi_interpolations_Lena("m1s10g2b123.971372r0.000369");
 //    check_psi_interpolations_Lena("m2s10g2b44.614955r0.000595");

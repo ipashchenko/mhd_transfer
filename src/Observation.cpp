@@ -17,12 +17,12 @@ Observation::Observation(Jet *newjet, ImagePlane *newimagePlane)
 
 // ``dt_max`` - max. step size in pc. Adaptive step size will be kept less then this.
 // ``n`` defines the initial step size (that will be adjusted) through utils.steps_schedule function.
-void Observation::run(int n, double tau_max, double dt_max, double tau_min, double nu, string polarization) {
+void Observation::run(int n, double tau_max, double dt_max, double tau_min, double nu, string polarization, double relerr) {
 	dt_max *= pc;
     auto image_size = getImageSize();
 	vector<Pixel>& pixels = imagePlane->getPixels();
 	vector<Ray>& rays = imagePlane->getRays();
-	omp_set_num_threads(4);
+	omp_set_num_threads(1);
 	// Comment out for easy debug printing
 //	#pragma omp parallel for schedule(dynamic) collapse(2) default(none) shared(image_size, rays, pixels, tau_min, tau_max, n, dt_max, nu, polarization)
     for (unsigned long int j = 0; j < image_size.first; ++j) {
@@ -33,7 +33,7 @@ void Observation::run(int n, double tau_max, double dt_max, double tau_min, doub
             auto &ray = rays[j*image_size.second+k];
         	auto &pxl = pixels[j*image_size.second+k];
 //        	std::cout << "Observing pixel " << j << ", " << k << std::endl;
-        	observe_single_pixel(ray, pxl, tau_min, tau_max, n, dt_max, nu, polarization);
+        	observe_single_pixel(ray, pxl, tau_min, tau_max, n, dt_max, nu, polarization, relerr);
         }
     }
 }
@@ -48,7 +48,8 @@ pair<unsigned long int, unsigned long int> Observation::getImageSize() {
 }
 
 pair<double, double> Observation::integrate_tau_adaptive(std::list<Intersection> &list_intersect, Vector3d ray_direction,
-                                                         const double nu, double tau_max, int n, double dt_max) {
+                                                         const double nu, double tau_max, int n, double dt_max,
+                                                         double relerr) {
 
 	// Precision for finding tau crossing
 	const double tau_precision = 1;
@@ -74,7 +75,7 @@ pair<double, double> Observation::integrate_tau_adaptive(std::list<Intersection>
 		// This is out State
 		double optDepth = 0.0;
 		typedef runge_kutta_dopri5< double > stepper_type;
-	    auto stepper = make_dense_output(1E-18, 1E-7, dt_max, stepper_type());
+	    auto stepper = make_dense_output(1E-18, relerr, dt_max, stepper_type());
 		auto is_done = std::bind(check_opt_depth, tau_max, std::placeholders::_1);
 		auto ode_range = make_adaptive_range(std::ref(stepper), tau, optDepth, 0.0, length, dt);
 		auto found_iter = std::find_if(ode_range.first, ode_range.second, is_done);
@@ -133,7 +134,7 @@ pair<double, double> Observation::integrate_tau_adaptive(std::list<Intersection>
 }
 
 void Observation::integrate_i_adaptive(std::list<Intersection> &list_intersect, const Vector3d& ray_direction, const double nu,
-                                       int n, double& background_I, double dt_max) {
+                                       int n, double& background_I, double dt_max, double relerr) {
 
     for (auto it = list_intersect.rbegin();
          it != list_intersect.rend(); ++it) {
@@ -153,7 +154,7 @@ void Observation::integrate_i_adaptive(std::list<Intersection> &list_intersect, 
         // Adaptive
         typedef runge_kutta_dopri5<double> stepper_type;
 //         One can add observer function at the end of the argument list. Here ``dt`` is the initial step size
-        int num_steps = integrate_adaptive(make_controlled(1E-18, 1E-7, dt_max, stepper_type()),
+        int num_steps = integrate_adaptive(make_controlled(1E-18, relerr, dt_max, stepper_type()),
                                            stokesI,
                                            stI, 0.0, length, dt);
 
@@ -166,7 +167,7 @@ void Observation::integrate_i_adaptive(std::list<Intersection> &list_intersect, 
 }
 
 void Observation::integrate_speed_adaptive(std::list<Intersection> &list_intersect, const Vector3d& ray_direction, const double nu,
-                                           int n, double& emm_weighted_beta_app, double dt_max) {
+                                           int n, double& emm_weighted_beta_app, double dt_max, double relerr) {
 
     for (auto it = list_intersect.rbegin();
          it != list_intersect.rend(); ++it) {
@@ -186,7 +187,7 @@ void Observation::integrate_speed_adaptive(std::list<Intersection> &list_interse
         // Adaptive
         typedef runge_kutta_dopri5<double> stepper_type;
         // One can add observer function at the end of the argument list. Here ``dt`` is the initial step size
-        int num_steps = integrate_adaptive(make_controlled(1E-18, 1E-7, dt_max, stepper_type()),
+        int num_steps = integrate_adaptive(make_controlled(1E-18, relerr, dt_max, stepper_type()),
                                            speed,
                                            beta_app, 0.0, length, dt);
 
@@ -218,7 +219,8 @@ void Observation::integrate_full_stokes(std::list<Intersection> &list_intersect,
 }
 
 void Observation::integrate_full_stokes_adaptive(std::list<Intersection> &list_intersect, const Vector3d& ray_direction,
-                                                 const double nu, int n, std::vector<double>& background, double dt_max) {
+                                                 const double nu, int n, std::vector<double>& background, double dt_max,
+                                                 double relerr) {
 
 	for (auto it = list_intersect.rbegin();
 	     it != list_intersect.rend(); ++it) {
@@ -237,7 +239,7 @@ void Observation::integrate_full_stokes_adaptive(std::list<Intersection> &list_i
         std::vector<double> iquv = background;
 		// One can add observer function at the end of the argument list.
 		// TODO: Previously it was 1E-16, 1E-16
-		int num_steps = integrate_adaptive(make_controlled(1E-10, 1E-10, dt_max, stepper_type()),
+		int num_steps = integrate_adaptive(make_controlled(1E-10, relerr, dt_max, stepper_type()),
 		                   full_stokes, iquv, 0.0, length, dt);
 		background = iquv;
 	}
@@ -245,7 +247,7 @@ void Observation::integrate_full_stokes_adaptive(std::list<Intersection> &list_i
 
 
 void Observation::integrate_faraday_rotation_depth_adaptive(std::list<Intersection> &list_intersect, const Vector3d& ray_direction,
-                                                 const double nu, int n, double& background, double dt_max) {
+                                                 const double nu, int n, double& background, double dt_max, double relerr) {
 
     for (auto it = list_intersect.rbegin();
          it != list_intersect.rend(); ++it) {
@@ -267,7 +269,7 @@ void Observation::integrate_faraday_rotation_depth_adaptive(std::list<Intersecti
         double tau_fr_value = background;
         // One can add observer function at the end of the argument list.
         // TODO: Previously it was 1E-16, 1E-16
-        int num_steps = integrate_adaptive(make_controlled(1E-10, 1E-10, dt_max, stepper_type()),
+        int num_steps = integrate_adaptive(make_controlled(1E-10, relerr, dt_max, stepper_type()),
                                            tau_fr, tau_fr_value, 0.0, length, dt);
         //std::cout << "num_steps = " << num_steps << std::endl;
         //std::cout << "tau_fr = " << tau_fr_value << std::endl;
@@ -277,14 +279,14 @@ void Observation::integrate_faraday_rotation_depth_adaptive(std::list<Intersecti
 }
 
 void Observation::observe_single_pixel(Ray &ray, Pixel &pxl,  double tau_min, double tau_max, int n, double dt_max,
-                                       double nu, string polarization) {
+                                       double nu, string polarization, double relerr) {
 //    auto ij = pxl.getij();
 //    std::cout << "Observing pixel " << ij.first << ", " << ij.second << "\n";
     auto ray_direction = ray.direction();
     std::list<Intersection> list_intersect = jet->hit(ray);
     if (!list_intersect.empty()) {
         std::pair<double, double> tau_l_end;
-        tau_l_end = integrate_tau_adaptive(list_intersect, ray_direction, nu, tau_max, n, dt_max);
+        tau_l_end = integrate_tau_adaptive(list_intersect, ray_direction, nu, tau_max, n, dt_max, relerr);
         double background_tau = tau_l_end.first;
         double thickness = tau_l_end.second;
 
@@ -297,17 +299,18 @@ void Observation::observe_single_pixel(Ray &ray, Pixel &pxl,  double tau_min, do
         // Calculate I only if optical depth is high enough (> tau_min)
         if (background_tau > tau_min && background_tau < 10*tau_max) {
             if (polarization == "I") {
-                integrate_i_adaptive(list_intersect, ray_direction, nu, n, background_I, dt_max);
+                integrate_i_adaptive(list_intersect, ray_direction, nu, n, background_I, dt_max, relerr);
             }
             else if(polarization == "speed") {
-                integrate_i_adaptive(list_intersect, ray_direction, nu, n, background_I, dt_max);
-                integrate_speed_adaptive(list_intersect, ray_direction, nu, n, emm_weighted_beta_app, dt_max);
+                integrate_i_adaptive(list_intersect, ray_direction, nu, n, background_I, dt_max, relerr);
+                integrate_speed_adaptive(list_intersect, ray_direction, nu, n, emm_weighted_beta_app, dt_max, relerr);
             }
             else if (polarization == "full") {
                 // TODO: If one does not need adaptive step size - uncomment this line
                 //integrate_full_stokes(list_intersect, ray_direction, nu, n, background_iquv, dt_max);
-                integrate_full_stokes_adaptive(list_intersect, ray_direction, nu, n, background_iquv, dt_max);
-                integrate_faraday_rotation_depth_adaptive(list_intersect, ray_direction, nu, n, background_taufr, dt_max);
+                integrate_full_stokes_adaptive(list_intersect, ray_direction, nu, n, background_iquv, dt_max, relerr);
+                integrate_faraday_rotation_depth_adaptive(list_intersect, ray_direction, nu, n, background_taufr,
+                                                          dt_max, relerr);
             }
         }
 
