@@ -190,7 +190,7 @@ void check_psi_interpolations_Lena(const std::string& mhd_run_name) {
         angle[i].resize(n_across);
         for(size_t j=0; j < n_across; j++) {
             // Point in physical space
-            Vector2d pos = {r_pc[j],z_pc[i]};
+            Vector2d pos = {r_pc[j], z_pc[i]};
             // Point in (z, Psi) space
             Vector2d pos_psi = {interp_rPsi.interpolated_value(pos), z_pc[i]};
 
@@ -812,8 +812,8 @@ std::vector<double> run_on_simulations(const std::string& mhd_run_name, double n
 }
 
 
-// To run in parallel:
-// parallel --files --results result_{1}_amp{2}_loc{2}_width{3} --joblog log --jobs 3 -a params.txt -n 6 -m  --colsep ' ' "./mhd_transfer"
+// To run in parallel when fil params.txt has 11 parameter sets:
+// parallel --files --results result_{1}_amp_{3}_Psi_{4}_dPsi_{5} --joblog log --jobs 11 -a params.txt -n 1 -m --colsep ' ' "./mhd_transfer"
 int main(int argc, char *argv[]) {
 
     bool anisotropic_s = false;
@@ -870,10 +870,12 @@ int main(int argc, char *argv[]) {
     for(auto total_flux: total_fluxes){
         std::cout << "Total flux [Jy] = " << total_flux << "\n";
     }
-
-
-    // From IDE
-//    run_on_simulations("m1s10g2b123.971372r0.000369", 0.05, 0.0, 100, false, "bsq");
+//
+//
+//    // From IDE
+//    total_fluxes = run_on_simulations("m1s10g2b123.971372r0.000369", 0.0, 0.3,
+//                                      gamma_min, anisotropic_s, particles_heating_model,
+//                                      0.7, 0.025, 1e-07);
 
 
 //    check_psi_interpolations_Lena("m1s10g2b123.971372r0.000369");

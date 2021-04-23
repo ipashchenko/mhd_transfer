@@ -25,13 +25,14 @@ double SimulationInterpolater::interpolated_value(Vector2d point) const {
     if (previous_hit_fh_ != nullptr) {
 //        std::cout << "Hit with hint" << std::endl;
         fh = tr_->locate(pt, previous_hit_fh_);
+//        fh = tr_->inexact_locate(pt, previous_hit_fh_);
 //        std::cout << "Done Hit with hint" << std::endl;
     } else {
 //        std::cout << "First time hit" << std::endl;
         fh = tr_->locate(pt);
     }
 
-    // This previous w/o hints
+    // Always w/o hints
 //    fh = tr_->locate(pt);
 
     if (tr_->is_infinite(fh)) {
@@ -41,12 +42,12 @@ double SimulationInterpolater::interpolated_value(Vector2d point) const {
         previous_hit_fh_ = fh;
     }
 
-    std::vector<Point_ > vertexes;
-    std::vector<double> info;
+    std::vector<Point_ > vertexes(3);
+    std::vector<double> info(3);
 
     for (int i=0; i<3; i++) {
-        vertexes.push_back(fh->vertex(i)->point());
-        info.push_back(fh->vertex(i)->info());
+        vertexes[i] = fh->vertex(i)->point();
+        info[i] = fh->vertex(i)->info();
 
 //        std::cout << "Triangle:\t" << tr_->triangle(fh) << std::endl;
 //        std::cout << "Vertex 0:\t" << tr_->triangle(fh)[i] << std::endl;
@@ -70,6 +71,52 @@ double SimulationInterpolater::interpolated_value(Vector2d point) const {
 
     return interpolated_value;
 }
+
+
+double SimulationInterpolater::interpolated_value_nn(Vector2d point) const {
+    Point_ pt(point[0], point[1]);
+    Point_coordinate_vector coords;
+
+    // The functor Identity is passed to the method
+    CGAL::Triple<std::back_insert_iterator<Point_coordinate_vector>, K::FT, bool> result =
+            CGAL::natural_neighbor_coordinates_2(*tr_, pt, std::back_inserter(coords), Identity());
+
+    if(!result.third)
+    {
+//        std::cout << "The coordinate computation was not successful." << std::endl;
+//        std::cout << "The point (" << pt << ") lies outside the convex hull." << std::endl;
+        return nan_value_;
+    }
+    // Assign the coordinates to the vertices
+//    std::cout << "==============================" << std::endl;
+//    std::cout << "Coordinates for point: (" << pt << ") are the following: " << std::endl;
+//    double sum_coordinates = 0.0;
+//    for(std::size_t i=0; i<coords.size(); ++i)
+//    {
+//        Vertex_handle vh = coords[i].first;
+//        std::cout << "Original info in vertex :" << coords[i].first->info() << std::endl;
+//        vh->info() = coords[i].second;
+//        std::cout << "  Vertex: (" << coords[i].first->point() << ") coeff: " << coords[i].second << std::endl;
+//        sum_coordinates += coords[i].second;
+//    }
+
+//    std::cout << "Norm factor of NN coordinates = " << result.second << "\n";
+//    std::cout << "Sum of NN coordinates = " << sum_coordinates << "\n";
+
+    double interpolated_value = 0;
+    for(size_t j = 0; j < coords.size(); ++j) {
+        // Value * NN_coordinate / NN_norm_factor
+        interpolated_value += coords[j].first->info()*coords[j].second/result.second;
+    }
+//
+    // FIXME: Do I need this?
+    if (std::isnan(interpolated_value)) {
+        interpolated_value = nan_value_;
+    }
+
+    return interpolated_value;
+}
+
 
 
 Vector2d SimulationInterpolater::gradient(Vector2d point, const SimulationInterpolater& psi_space_interpolater) const {

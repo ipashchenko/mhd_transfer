@@ -41,6 +41,7 @@ void I::operator()(const double &x, double &dxdt, const double t) {
 
     dxdt = eta_i - k_i*(x+compensate_negative_I);
 
+    // FIXME: This is possibly wrong
     // This adds to previous step Stokes I, so add value that compensating negative Stokes I from previous step
     dxdt += compensate_negative_I;
 }
@@ -165,6 +166,8 @@ void FullStokes::operator()(const state_type &x, state_type &dxdt,
         // Need rotation (on 2chi) from ``emitting system` to ``observers system``
         // Change of state in ``observers system``
         dxdt = dxdt_eb;
+
+        // FIXME: This is possibly wrong
         // This adds to previous step Stokes I, so add value that compensating negative Stokes I from previous step
         // FIXME: I must add to x[0] (however it is const)!!!
         dxdt[0] += compensate_negative_I;

@@ -20,6 +20,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 try:
     from fourier import FINUFFT_NUNU
 except ImportError:
+    raise Exception("Install pynufft")
     FINUFFT_NUNU = None
 
 
@@ -285,14 +286,14 @@ class JetImage(ABC):
             image = self.image()/factor.T
         else:
             image = self.image()
-        image[image < 1e-14] = 0
+        # image[image < 1e-14] = 0
         min_positive = np.min(image[image > 0])
         print("Min positive = ", min_positive)
         from scipy.stats import scoreatpercentile
-        first_contour = scoreatpercentile(image[image > min_positive], 1)
+        first_contour = scoreatpercentile(image[image > min_positive], 0.1)
         # print(first_contour)
-        if log and Nan2zero:
-            image[image == 0.0] = 1e-12
+        # if log and Nan2zero:
+        #     image[image == 0.0] = 1e-12
 
         # zoom fraction - fraction of the original image to show. 0.5 means that show only first half of the image
         assert 0.0 < zoom_fr <= 1.0
@@ -586,7 +587,7 @@ def plot_psi_interpolated(mhd_code, extent=(0, 10, 0, 1), txt_dir='/home/ilya/gi
 
 def plot_images(mhd_code, rt_code, txt_files_dir="/home/ilya/github/mhd_transfer/Release", save_dir=None,
                 n_along=600, n_across=200, lg_pixel_size_mas_min=np.log10(0.01), lg_pixel_size_mas_max=np.log10(0.1),
-                freq_ghz_high=15.4, freq_ghz_low=None, cmap="magma", plot_beta_app=False):
+                freq_ghz_high=15.4, freq_ghz_low=None, cmap="magma", plot_beta_app=False, show=True):
     if save_dir is None:
         save_dir = os.getcwd()
 
@@ -607,7 +608,8 @@ def plot_images(mhd_code, rt_code, txt_files_dir="/home/ilya/github/mhd_transfer
     fig = jm.plot(log=True, Nan2zero=False, zoom_fr=1.0, axis_units="mas", figsize=(20, 7.5), cmap=cmap)
     fig.savefig(os.path.join(save_dir, "I_freq_{}_GHz_mhd_{}_rt_{}.png".format(freq_ghz_high, mhd_code, rt_code)),
                 bbox_inches="tight", dpi=300)
-    plt.show()
+    if show:
+        plt.show()
     plt.close(fig)
 
     if plot_beta_app:
@@ -616,18 +618,35 @@ def plot_images(mhd_code, rt_code, txt_files_dir="/home/ilya/github/mhd_transfer
                       cblabel=r"$\beta_{\rm app}$, c", scale_by_pixsize=False, beta_app_min=0, beta_app_max=7)
         fig.savefig(os.path.join(save_dir, "beta_app_freq_{}_GHz_mhd_{}_rt_{}.png".format(freq_ghz_high, mhd_code, rt_code)),
                     bbox_inches="tight", dpi=300)
-        plt.show()
+        if show:
+            plt.show()
         plt.close(fig)
 
     if freq_ghz_low:
         fig = jm.plot_alpha(figsize=(20, 7.5), alpha_min=-1., alpha_max=0.0, count_levels_from_image_min=True)
         fig.savefig(os.path.join(save_dir, "alpha_mhd_{}_rt_{}.png".format(mhd_code, rt_code)),
                     bbox_inches="tight", dpi=300)
-        plt.show()
+        if show:
+            plt.show()
         plt.close(fig)
 
 
-def plot_raw(txt, label, savename, extent):
+def plot_several_images(prefix, directory):
+    import glob
+    i_images_files = sorted(glob.glob(os.path.join(directory, prefix + "_*_jet_image_i_15.4.txt")))
+    for i_image_file in i_images_files:
+        i_image_file = os.path.split(i_image_file)[-1]
+        print("Plotting ", i_image_file)
+        psi = i_image_file.split("_")[2]
+        dpsi = i_image_file.split("_")[4]
+        subcode = "_psi_{}_dpsi_{}".format(psi, dpsi)
+        code = prefix + subcode
+        plot_images(code, "byhand", txt_files_dir=directory, save_dir=directory, n_along=600, n_across=100,
+                    lg_pixel_size_mas_min=np.log10(0.01), lg_pixel_size_mas_max=np.log10(0.05), freq_ghz_high=15.4,
+                    plot_beta_app=True, show=False)
+
+
+def plot_raw(txt, label, extent, savename=None):
     toplot = np.loadtxt(txt)
     fig, axes = plt.subplots(1, 1)
     im = axes.matshow(toplot, extent=extent, aspect="equal")
@@ -638,7 +657,8 @@ def plot_raw(txt, label, savename, extent):
     cax = divider.append_axes("right", size="5%", pad=0.00)
     cb = fig.colorbar(im, cax=cax)
     cb.set_label(label)
-    fig.savefig(savename, bbox_inches="tight", dpi=300)
+    if savename is not None:
+        fig.savefig(savename, bbox_inches="tight", dpi=300)
     plt.show()
 
 

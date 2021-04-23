@@ -113,7 +113,7 @@ def create_files_for_transfer_Lena(run_name, files_dir, save_dir, slow_down_cent
     if slow_down_center:
         if gamma_in_original is None:
             raise Exception("Provide original gamma_in for slowing down central part!")
-        slow_down_central_region(run_name, files_dir, gamma_in_original, saveplotfn="Gamma_slowdown.png")
+        slow_down_central_region(run_name, files_dir, saveplotfn="Gamma_slowdown.png")
         Gamma_files = glob.glob(os.path.join(files_dir, "{}_*_Gamma_low.txt".format(run_name)))
     else:
         Gamma_files = glob.glob(os.path.join(files_dir, "{}_*_Gamma.txt".format(run_name)))
@@ -290,4 +290,4 @@ if __name__ == "__main__":
         raise Exception("Provide MHD code as a single argument")
     run_name = sys.argv[1]
     # create_files_for_transfer(run_name, files_dir, save_dir)
-    create_files_for_transfer_Lena(run_name, files_dir, save_dir, slow_down_center=True, gamma_in_original=2.5)
+    create_files_for_transfer_Lena(run_name, files_dir, save_dir=files_dir, slow_down_center=True, gamma_in_original=2.5)
