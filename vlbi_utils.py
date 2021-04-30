@@ -1,9 +1,19 @@
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 import numpy as np
 from scipy.ndimage.measurements import label
 from scipy.ndimage.morphology import generate_binary_structure
 from skimage.measure import regionprops
 from astropy.stats import mad_std
+from astropy.convolution import convolve, Gaussian2DKernel
 from scipy.stats import percentileofscore, scoreatpercentile
+import astropy.io.fits as pf
+from astropy.wcs import WCS
+from astropy import units as u
+import sys
+sys.path.insert(0, '/home/ilya/github/ve/vlbi_errors')
+from from_fits import create_clean_image_from_fits_file
 
 
 def pol_mask(stokes_image_dict, beam_pixels, n_sigma=2., return_quantile=False):
@@ -221,3 +231,183 @@ def choose_range_from_positive_tailed_distribution(data, min_fraction=95):
         return min_fraction_range, 95
     else:
         return hp_low, frac
+
+
+def filter_CC(ccfits, mask, outname=None, plotsave_fn=None):
+    """
+    :param ccfits:
+    :param mask:
+        Mask with region of source flux being True.
+    :param outname:
+    :return:
+    """
+    hdus = pf.open(ccfits)
+    hdus.verify("silentfix")
+    data = hdus[1].data
+    data_ = data.copy()
+    deg2mas = u.deg.to(u.mas)
+
+    header = pf.getheader(ccfits)
+    imsize = header["NAXIS1"]
+    wcs = WCS(header)
+    # Ignore FREQ, STOKES - only RA, DEC matters here
+    wcs = wcs.celestial
+
+    # Make offset coordinates
+    wcs.wcs.crval = 0, 0
+    wcs.wcs.ctype = 'XOFFSET', 'YOFFSET'
+    wcs.wcs.cunit = 'deg', 'deg'
+
+    xs = list()
+    ys = list()
+    xs_del = list()
+    ys_del = list()
+    fs_del = list()
+    for flux, x_orig, y_orig in zip(data['FLUX'], data['DELTAX'], data['DELTAY']):
+        x, y = wcs.world_to_array_index(x_orig*u.deg, y_orig*u.deg)
+
+        if x >= imsize:
+            x = imsize - 1
+        if y >= imsize:
+            y = imsize - 1
+        if mask[x, y]:
+            # Keep this component
+            xs.append(x)
+            ys.append(y)
+        else:
+            # Remove row from rec_array
+            xs_del.append(x_orig)
+            ys_del.append(y_orig)
+            fs_del.append(flux)
+
+    for (x, y, f) in zip(xs_del, ys_del, fs_del):
+        local_mask = ~np.logical_and(np.logical_and(data_["DELTAX"] == x, data_["DELTAY"] == y),
+                                     data_["FLUX"] == f)
+        data_ = data_.compress(local_mask, axis=0)
+    print("Deleted {} components".format(len(xs_del)))
+
+    if plotsave_fn is not None:
+        a = data_['DELTAX']*deg2mas
+        b = data_['DELTAY']*deg2mas
+        a_all = data['DELTAX']*deg2mas
+        b_all = data['DELTAY']*deg2mas
+
+        fig, axes = plt.subplots(1, 1)
+        # im = axes.scatter(a, b, c=np.log10(1000*data_["FLUX"]), vmin=0, s=1, cmap="jet")
+        axes.scatter(a_all, b_all, color="gray", alpha=0.25, s=2)
+        # axes.scatter(a, b, color="red", alpha=0.5, s=1)
+        # from mpl_toolkits.axes_grid1 import make_axes_locatable
+        # divider = make_axes_locatable(axes)
+        # cax = divider.append_axes("right", size="5%", pad=0.00)
+        # cb = fig.colorbar(im, cax=cax)
+        # cb.set_label("CC Flux, Jy")
+        axes.invert_xaxis()
+        axes.set_aspect("equal")
+        axes.set_xlabel("RA, mas")
+        axes.set_ylabel("DEC, mas")
+        plt.show()
+        plt.savefig(plotsave_fn, bbox_inches="tight", dpi=300)
+        plt.close()
+
+    hdus[1].data = data_
+    hdus[1].header["NAXIS2"] = len(data_)
+    if outname is None:
+        outname = ccfits
+    hdus.writeto(outname, overwrite=True)
+
+def filter_CC_dimap_by_rmax(dfm_model_in, r_max, dfm_model_out=None):
+    comps = np.loadtxt(dfm_model_in, comments="!")
+    len_in = len(comps)
+    comps = comps[comps[:, 1] < r_max]
+    len_out = len(comps)
+    print("{} CCs left from initial {}\n".format(len_out, len_in))
+    if dfm_model_out is None:
+        dfm_model_out = dfm_model_in
+    np.savetxt(dfm_model_out, comps)
+
+def CCFITS_to_difmap(ccfits, difmap_mdl_file, shift=None):
+    hdus = pf.open(ccfits)
+    hdus.verify("silentfix")
+    data = hdus[1].data
+    deg2mas = u.deg.to(u.mas)
+    with open(difmap_mdl_file, "w") as fo:
+        for flux, ra, dec in zip(data['FLUX'], data['DELTAX'], data['DELTAY']):
+            ra *= deg2mas
+            dec *= deg2mas
+            if shift is not None:
+                ra -= shift[0]
+                dec -= shift[1]
+            theta = np.rad2deg(np.arctan2(ra, dec))
+            r = np.hypot(ra, dec)
+            fo.write("{} {} {}\n".format(flux, r, theta))
+
+
+def get_mask_for_ccstack(iccfiles, cc_conv_cutoff_mjy=0.0075, kern_width=10):
+    """
+    Get mask containing CC of stack.
+    :param iccfiles:
+        Iterable of CC-files.
+    :param cc_conv_cutoff_mjy:
+    :param kern_width:
+    :return:
+        Masked numpy 2D array.
+    """
+    # iccfiles = glob.glob(os.path.join(cc_dir, "cc_I_*.fits"))
+    iccimages = [create_clean_image_from_fits_file(ccfile) for ccfile in iccfiles]
+    icconly = np.mean([ccimage.cc for ccimage in iccimages], axis=0)
+    cconly_conv = convolve(1000*icconly, Gaussian2DKernel(x_stddev=kern_width))
+    signal = cconly_conv > cc_conv_cutoff_mjy
+    s = generate_binary_structure(2, 2)
+    labeled_array, num_features = label(signal, structure=s)
+    props = regionprops(labeled_array, intensity_image=cconly_conv)
+    max_prop = sorted(props, key=lambda x: x.area, reverse=True)[0]
+    mask = np.zeros((512, 512), dtype=bool)
+    bbox = max_prop.bbox
+    mask[bbox[0]:bbox[2], bbox[1]:bbox[3]] = max_prop.filled_image
+    return mask
+
+
+def convert_difmap_model_file_to_CCFITS(difmap_model_file, stokes, mapsize, restore_beam, uvfits_template, out_ccfits,
+                                        shift=None, show_difmap_output=True):
+    """
+    Using difmap-formated model file (e.g. flux, r, theta) obtain convolution of your model with the specified beam.
+
+    :param difmap_model_file:
+        Difmap-formated model file. Use ``JetImage.save_image_to_difmap_format`` to obtain it.
+    :param stokes:
+        Stokes parameter.
+    :param mapsize:
+        Iterable of image size and pixel size (mas).
+    :param restore_beam:
+        Beam to restore: bmaj(mas), bmin(mas), bpa(deg).
+    :param uvfits_template:
+        Template uvfits observation to use. Difmap can't read model without having observation at hand.
+    :param out_ccfits:
+        File name to save resulting convolved map.
+    :param shift: (optional)
+        Shift to apply. Need this because wmodel doesn't apply shift. If
+        ``None`` then do not apply shift. (default: ``None``)
+    :param show_difmap_output: (optional)
+        Boolean. Show Difmap output? (default: ``True``)
+    """
+    from subprocess import Popen, PIPE
+
+    cmd = "observe " + uvfits_template + "\n"
+    cmd += "select " + stokes + "\n"
+    cmd += "rmodel " + difmap_model_file + "\n"
+    cmd += "mapsize " + str(mapsize[0] * 2) + "," + str(mapsize[1]) + "\n"
+    if shift is not None:
+        # Here we need shift, because in CLEANing shifts are not applied to
+        # saving model files!
+        cmd += "shift " + str(shift[0]) + ', ' + str(shift[1]) + "\n"
+    print("Restoring difmap model with BEAM : bmin = " + str(restore_beam[1]) + ", bmaj = " + str(restore_beam[0]) + ", " + str(restore_beam[2]) + " deg")
+    # default dimfap: false,true (parameters: omit_residuals, do_smooth)
+    cmd += "restore " + str(restore_beam[1]) + "," + str(restore_beam[0]) + "," + str(restore_beam[2]) + "," + "true,false" + "\n"
+    cmd += "wmap " + out_ccfits + "\n"
+    cmd += "exit\n"
+
+    with Popen('difmap', stdin=PIPE, stdout=PIPE, stderr=PIPE, universal_newlines=True) as difmap:
+        outs, errs = difmap.communicate(input=cmd)
+    if show_difmap_output:
+        print(outs)
+        print(errs)
