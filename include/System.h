@@ -14,7 +14,9 @@ class System {
 
 	protected:
         Jet* jet;
-        Vector3d point_in;
+        // Starting point of integration. It is the closest point of jet for ``tau`` and the furthest for ``I``.
+        Vector3d point_start;
+        // Always direction to the observer.
         Vector3d ray_direction;
         double nu;
 };
@@ -35,7 +37,7 @@ class TauFR : public System {
 };
 
 
-// point_in is actually furthest point (i.e. ``point_out`` in intersection).
+// point_start is actually furthest point (i.e. ``point_out`` in intersection).
 class I : public System {
  public:
   I(Jet* newjet, Vector3d &newpoint_in, Vector3d &newray_direction,

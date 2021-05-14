@@ -642,9 +642,9 @@ std::vector<double> run_on_simulations(const std::string& mhd_run_name,
         double tau_min = pow(10.,tau_min_log10);
         int n_ = 100;
 
-//        string polarization = "I";
+        string polarization = "I";
 //        string polarization = "speed";
-        string polarization = "full";
+//        string polarization = "full";
 
         for(int i_nu=0; i_nu < nu_observed_ghz.size(); i_nu++) {
 
@@ -817,7 +817,7 @@ std::vector<double> run_on_simulations(const std::string& mhd_run_name,
 
 
 // To run in parallel when fil params_3ridges.txt has 3 parameter sets:
-// parallel --files --results result_{1}_AmpAxis_{3}_AmpEdges_{4}_PsiEdges_{5}_dPsiEdges_{6}_dPsiAxis_{7} --joblog log --jobs 3 -a params_3ridges.txt -n 1 -m --colsep ' ' "./mhd_transfer"
+// parallel --files --results result_{1}_AmpAxis_{3}_AmpEdges_{4}_PsiEdges_{5}_dPsiEdges_{6}_dPsiAxis_{7}_relerr_{8} --joblog log --jobs 3 -a params_3ridges.txt -n 1 -m --colsep ' ' "./mhd_transfer"
 int main(int argc, char *argv[]) {
 
     bool anisotropic_s = false;
@@ -827,69 +827,71 @@ int main(int argc, char *argv[]) {
     std::vector<string> implemented_heating_model_types{"bsq", "n", "jsq", "byhand"};
     std::vector<double> total_fluxes;
 
-    if(argc != 9){
-        std::cout << argc << "\n";
-        std::cout << "Supply MHD code, NT uniform density scale factor (0 < f [< 1]), NT axis scale factor (0 < f [<1]),"
-                     " NT border density scale factor (0 < f [< 1]),"
-                     " center Psi for border, width Psi for border, width Psi for axis, rel.error\n" << "\n";
-        return 1;
-    }
-    else {
-        std::cout << "Doing radiation transport for MHD code " << argv[1] << "\n";
-
-        double n_scale_nt = atof(argv[2]);
-        std::cout << "scaling factor for NT particles uniform density = " << argv[2] << "\n";
-
-        double n_scale_axis = atof(argv[3]);
-        std::cout << "scaling factor for NT particles density at the axis = " << argv[3] << "\n";
-
-        double n_scale_border = atof(argv[4]);
-        std::cout << "scaling factor for NT particles density at the border = " << argv[4] << "\n";
-
-        double Psi_c = atof(argv[5]);
-        std::cout << "Psi_c for border = " << argv[5] << "\n";
-
-        double sigma_Psi = atof(argv[6]);
-        std::cout << "sigma_Psi for border = " << argv[6] << "\n";
-
-        double sigma_Psi_axis = atof(argv[7]);
-        std::cout << "sigma_Psi for axis = " << argv[7] << "\n";
-
-        double relerr = atof(argv[8]);
-        std::cout << "relerr = " << argv[8] << "\n";
-
-//        double gamma_min = atof(argv[4]);
-//        std::cout << "gamma_min = " << argv[4] << "\n";
-
-//        bool anisotropic_s;
-//        std::istringstream is(argv[5]);
-//        is >> std::boolalpha >> anisotropic_s;
-//        std::cout << "Anisotropic s = " << argv[5] << "\n";
-
-//        std::string particles_heating_model = argv[5];
-//        std::cout << "Particles heating model = " << argv[5] << "\n";
-        // Check that particles heating model is implemented. This check is also done inside ``run_on_simulations``
-        if (std::find(implemented_heating_model_types.begin(),
-                      implemented_heating_model_types.end(),
-                      particles_heating_model) == implemented_heating_model_types.end())
-        {
-            throw NotImplmentedParticlesHeating(particles_heating_model);
-        }
-        total_fluxes = run_on_simulations(argv[1], n_scale_nt, n_scale_border, n_scale_axis, gamma_min,
-                                          anisotropic_s, particles_heating_model,
-                                          Psi_c, sigma_Psi, sigma_Psi_axis,
-                                          relerr);
-    }
+//    if(argc != 9){
+//        std::cout << argc << "\n";
+//        std::cout << "Supply MHD code, NT uniform density scale factor (0 < f [< 1]), NT axis scale factor (0 < f [<1]),"
+//                     " NT border density scale factor (0 < f [< 1]),"
+//                     " center Psi for border, width Psi for border, width Psi for axis, rel.error\n" << "\n";
+//        return 1;
+//    }
+//    else {
+//        std::cout << "Doing radiation transport for MHD code " << argv[1] << "\n";
+//
+//        double n_scale_nt = atof(argv[2]);
+//        std::cout << "scaling factor for NT particles uniform density = " << argv[2] << "\n";
+//
+//        double n_scale_axis = atof(argv[3]);
+//        std::cout << "scaling factor for NT particles density at the axis = " << argv[3] << "\n";
+//
+//        double n_scale_border = atof(argv[4]);
+//        std::cout << "scaling factor for NT particles density at the border = " << argv[4] << "\n";
+//
+//        double Psi_c = atof(argv[5]);
+//        std::cout << "Psi_c for border = " << argv[5] << "\n";
+//
+//        double sigma_Psi = atof(argv[6]);
+//        std::cout << "sigma_Psi for border = " << argv[6] << "\n";
+//
+//        double sigma_Psi_axis = atof(argv[7]);
+//        std::cout << "sigma_Psi for axis = " << argv[7] << "\n";
+//
+//        double relerr = atof(argv[8]);
+//        std::cout << "relerr = " << argv[8] << "\n";
+//
+////        double gamma_min = atof(argv[4]);
+////        std::cout << "gamma_min = " << argv[4] << "\n";
+//
+////        bool anisotropic_s;
+////        std::istringstream is(argv[5]);
+////        is >> std::boolalpha >> anisotropic_s;
+////        std::cout << "Anisotropic s = " << argv[5] << "\n";
+//
+////        std::string particles_heating_model = argv[5];
+////        std::cout << "Particles heating model = " << argv[5] << "\n";
+//        // Check that particles heating model is implemented. This check is also done inside ``run_on_simulations``
+//        if (std::find(implemented_heating_model_types.begin(),
+//                      implemented_heating_model_types.end(),
+//                      particles_heating_model) == implemented_heating_model_types.end())
+//        {
+//            throw NotImplmentedParticlesHeating(particles_heating_model);
+//        }
+//        total_fluxes = run_on_simulations(argv[1], n_scale_nt, n_scale_border, n_scale_axis, gamma_min,
+//                                          anisotropic_s, particles_heating_model,
+//                                          Psi_c, sigma_Psi, sigma_Psi_axis,
+//                                          relerr);
+//    }
+//    for(auto total_flux: total_fluxes){
+//        std::cout << "Total flux [Jy] = " << total_flux << "\n";
+//    }
+//
+//
+    // From IDE
+    total_fluxes = run_on_simulations("m1s10g2b123.971372r0.000369", 0.0, 4.0, 2.0,
+                                      gamma_min, anisotropic_s, particles_heating_model,
+                                      1.0, 0.015, 0.03, 1e-05);
     for(auto total_flux: total_fluxes){
         std::cout << "Total flux [Jy] = " << total_flux << "\n";
     }
-//
-//
-//    // From IDE
-//    total_fluxes = run_on_simulations("m1s10g2b123.971372r0.000369", 0.0, 0.3,
-//                                      gamma_min, anisotropic_s, particles_heating_model,
-//                                      0.7, 0.025, 1e-07);
-
 
 //    check_psi_interpolations_Lena("m1s10g2b123.971372r0.000369");
 //    check_psi_interpolations_Lena("m2s10g2b44.614955r0.000595");

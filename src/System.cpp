@@ -9,46 +9,61 @@ System::System(Jet *newjet,
                Vector3d &newray_direction,
                double newnu) {
     jet = newjet;
-    point_in = newpoint_in;
+    point_start = newpoint_in;
     ray_direction = newray_direction;
     nu = newnu;
 }
 
 
+// FIXME: Sometimes tau becomes negative!!!
 void Tau::operator()(const double &x, double &dxdt, const double t) {
-    Vector3d point = point_in - t * ray_direction;
+    std::cout << "--- tau = " << x << "\n";
+    Vector3d point = point_start - t * ray_direction;
     dxdt = jet->getKI(point, ray_direction, nu);
 }
 
 
 void TauFR::operator()(const double &x, double &dxdt, double t) {
-    Vector3d point = point_in + t * ray_direction;
+    Vector3d point = point_start + t * ray_direction;
     dxdt = jet->getKF(point, ray_direction, nu);
 }
 
 
-void I::operator()(const double &x, double &dxdt, const double t) {
-    Vector3d point = point_in + t * ray_direction;
+//void I::operator()(const double &x, double &dxdt, const double t) {
+//    std::cout << "I = " << x << "\n";
+//    Vector3d point = point_start + t * ray_direction;
+//
+//    // If negative Stokes I resulted from previous step, remember its value to compensate for
+//    double compensate_negative_I = 0.0;
+//    if(x < 0) {
+//        compensate_negative_I = -x;
+//    }
+//
+//    double k_i, eta_i;
+//    std::tie(k_i, eta_i) = jet->get_stokes_I_transport_coefficients(point, ray_direction, nu);
+//
+//    dxdt = eta_i - k_i*(x+compensate_negative_I);
+//
+//    // FIXME: This is possibly wrong
+//    // This adds to previous step Stokes I, so add value that compensating negative Stokes I from previous step
+//    dxdt += compensate_negative_I;
+//}
 
-    // If negative Stokes I resulted from previous step, remember its value to compensate for
-    double compensate_negative_I = 0.0;
-    if(x < 0) {
-        compensate_negative_I = -x;
-    }
+
+// FIXME: Test w/o compensating negative
+void I::operator()(const double &x, double &dxdt, const double t) {
+    std::cout << "I = " << x << "\n";
+    Vector3d point = point_start + t * ray_direction;
 
     double k_i, eta_i;
     std::tie(k_i, eta_i) = jet->get_stokes_I_transport_coefficients(point, ray_direction, nu);
 
-    dxdt = eta_i - k_i*(x+compensate_negative_I);
-
-    // FIXME: This is possibly wrong
-    // This adds to previous step Stokes I, so add value that compensating negative Stokes I from previous step
-    dxdt += compensate_negative_I;
+    dxdt = eta_i - k_i*x;
 }
 
 
 void Speed::operator()(const double &x, double &dxdt, const double t) {
-    Vector3d point = point_in + t * ray_direction;
+    Vector3d point = point_start + t * ray_direction;
 
     // If negative Stokes I resulted from previous step, remember its value to compensate for
     double compensate_negative_I = 0.0;

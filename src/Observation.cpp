@@ -70,12 +70,13 @@ pair<double, double> Observation::integrate_tau_adaptive(std::list<Intersection>
 		// Directed to observer (as we integrate ``k`` only)
 		Vector3d ray_direction_ = -1. * ray_direction;
 
-		// First integrate till some ``tau_max``
+		// First integrate from the closest to the observer point till some ``tau_max``
+		// Here ``ray_direction`` points to the observer as it is an argument of k_I
 		Tau tau(jet, point_in, ray_direction_, nu);
 		// This is out State
 		double optDepth = 0.0;
 		typedef runge_kutta_dopri5< double > stepper_type;
-	    auto stepper = make_dense_output(1E-18, relerr, dt_max, stepper_type());
+	    auto stepper = make_dense_output(abserr, relerr, dt_max, stepper_type());
 		auto is_done = std::bind(check_opt_depth, tau_max, std::placeholders::_1);
 		auto ode_range = make_adaptive_range(std::ref(stepper), tau, optDepth, 0.0, length, dt);
 		auto found_iter = std::find_if(ode_range.first, ode_range.second, is_done);
@@ -147,6 +148,7 @@ void Observation::integrate_i_adaptive(std::list<Intersection> &list_intersect, 
         double dt = length / n;
 
         Vector3d inv_direction = -1. * ray_direction;
+        // Here ``inv_direction`` points to the observer as it is an argument of k_I
         I stokesI(jet, point_out, inv_direction, nu);
 
         double stI = background_I;
@@ -154,7 +156,7 @@ void Observation::integrate_i_adaptive(std::list<Intersection> &list_intersect, 
         // Adaptive
         typedef runge_kutta_dopri5<double> stepper_type;
 //         One can add observer function at the end of the argument list. Here ``dt`` is the initial step size
-        int num_steps = integrate_adaptive(make_controlled(1E-18, relerr, dt_max, stepper_type()),
+        int num_steps = integrate_adaptive(make_controlled(abserr, relerr, dt_max, stepper_type()),
                                            stokesI,
                                            stI, 0.0, length, dt);
 
@@ -280,8 +282,8 @@ void Observation::integrate_faraday_rotation_depth_adaptive(std::list<Intersecti
 
 void Observation::observe_single_pixel(Ray &ray, Pixel &pxl,  double tau_min, double tau_max, int n, double dt_max,
                                        double nu, string polarization, double relerr) {
-//    auto ij = pxl.getij();
-//    std::cout << "Observing pixel " << ij.first << ", " << ij.second << "\n";
+    auto ij = pxl.getij();
+    std::cout << "Observing pixel " << ij.first << ", " << ij.second << "\n";
     auto ray_direction = ray.direction();
     std::list<Intersection> list_intersect = jet->hit(ray);
     if (!list_intersect.empty()) {

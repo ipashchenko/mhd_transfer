@@ -5,6 +5,7 @@
 #include "Jet.h"
 #include "ImagePlane.h"
 
+const double abserr = 1e-30;
 
 class Observation {
     public:
