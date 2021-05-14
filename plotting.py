@@ -171,11 +171,15 @@ if __name__ == '__main__':
     matplotlib.use("Agg")
     freq_ghz_high = 15.4
     freq_ghz_low = 8.1
+
+    mhdrt_code = "m1s10g2b123.971372r0.000369_psi_1.000000_dpsi_0.015000"
+    save_dir = "/home/ilya/data/mf/pol"
+
     import os
     cwd = os.getcwd()
-    os.chdir(os.path.join(cwd, 'Release'))
-    i_image_high = np.loadtxt('jet_image_i_{}.txt'.format(freq_ghz_high))
-    i_image_low = np.loadtxt('jet_image_i_{}.txt'.format(freq_ghz_low))
+    os.chdir(save_dir)
+    i_image_high = np.loadtxt('{}_jet_image_i_{}.txt'.format(mhdrt_code, freq_ghz_high))
+    # i_image_low = np.loadtxt('{}_jet_image_i_{}.txt'.format(freq_ghz_low))
 
     # pixel_size = 0.01
     # sigma = 1.93/pixel_size/2.355
@@ -189,18 +193,18 @@ if __name__ == '__main__':
     # import sys
     # sys.exit(0)
 
-    # q_image = np.loadtxt('jet_image_q_{}.txt'.format(freq_ghz_high))
-    # u_image = np.loadtxt('jet_image_u_{}.txt'.format(freq_ghz_high))
+    q_image = np.loadtxt('{}_jet_image_q_{}.txt'.format(mhdrt_code, freq_ghz_high))
+    u_image = np.loadtxt('{}_jet_image_u_{}.txt'.format(mhdrt_code, freq_ghz_high))
     # v_image = np.loadtxt('jet_image_v_{}.txt'.format(freq_ghz_high))
-    tau_image = np.loadtxt('jet_image_tau_{}.txt'.format(freq_ghz_high))
+    tau_image = np.loadtxt('{}_jet_image_tau_{}.txt'.format(mhdrt_code, freq_ghz_high))
     # tau_fr_image_low = np.loadtxt('jet_image_taufr_{}.txt'.format(freq_ghz_low))
     # tau_fr_image_high = np.loadtxt('jet_image_taufr_{}.txt'.format(freq_ghz_high))
     # rm_image = 0.5*tau_fr_image_low/(0.037**2)
-    l_image = np.loadtxt('jet_image_l_{}.txt'.format(freq_ghz_high))
-    # p_image = np.sqrt(q_image**2+u_image**2)
-    # fpol_image = p_image/i_image_high
-    alpha_image = np.log(i_image_low/i_image_high)/np.log(freq_ghz_low/freq_ghz_high)
-    # chi_image = 0.5*np.arctan2(u_image, q_image)#-0.5*tau_fr_image_high
+    l_image = np.loadtxt('{}_jet_image_l_{}.txt'.format(mhdrt_code, freq_ghz_high))
+    p_image = np.sqrt(q_image**2+u_image**2)
+    fpol_image = p_image/i_image_high
+    # alpha_image = np.log(i_image_low/i_image_high)/np.log(freq_ghz_low/freq_ghz_high)
+    chi_image = 0.5*np.arctan2(u_image, q_image)#-0.5*tau_fr_image_high
 
     print("Flux density (Jy) = ", i_image_high.sum())
     # print("Flux density (Jy) = ", i_image_sim.sum())
@@ -225,25 +229,21 @@ if __name__ == '__main__':
     # axes_left.set_ylabel("Across the jet - Along the jet")
     # plt.show()
 
-    colors_mask = i_image_high < i_image_high.max()*0.0000001
-
-    fig = plot(contours=i_image_high, colors=np.log(i_image_high), cmap="jet", colors_mask=colors_mask, min_rel_level=0.05,
-               colorbar_label=r'$\log{I}$')
-    fig.savefig("I.png", dpi=300, bbox_inches="tight")
-
-    fig = plot(contours=i_image_high, colors=np.log10(tau_image), cmap="jet", colors_mask=colors_mask, min_rel_level=0.05,
-               colorbar_label=r'$\lg{\tau}$')
-    fig.savefig("tau_15GHz.png", dpi=300, bbox_inches="tight")
-
-    fig = plot(contours=i_image_high, colors=alpha_image, colors_mask=colors_mask, min_rel_level=0.05,
-               colorbar_label=r'$\alpha$', color_clim=[-0.8, 0.2])
-    fig.savefig("alpha_Icontours.png", dpi=300, bbox_inches="tight")
-
-    import sys
-    sys.exit(0)
+    # colors_mask = i_image_high < i_image_high.max()*0.0000001
+    # fig = plot(contours=i_image_high, colors=np.log(i_image_high), cmap="jet", colors_mask=colors_mask, min_rel_level=0.05,
+    #            colorbar_label=r'$\log{I}$')
+    # fig.savefig("I.png", dpi=300, bbox_inches="tight")
+    # fig = plot(contours=i_image_high, colors=np.log10(tau_image), cmap="jet", colors_mask=colors_mask, min_rel_level=0.05,
+    #            colorbar_label=r'$\lg{\tau}$')
+    # fig.savefig("tau_15GHz.png", dpi=300, bbox_inches="tight")
+    # fig = plot(contours=i_image_high, colors=alpha_image, colors_mask=colors_mask, min_rel_level=0.05,
+    #            colorbar_label=r'$\alpha$', color_clim=[-0.8, 0.2])
+    # fig.savefig("alpha_Icontours.png", dpi=300, bbox_inches="tight")
+    # import sys
+    # sys.exit(0)
 
     # Just plotting picture
-    # colors_mask = i_image_sim < i_image_sim.max()*0.00001
+    colors_mask = i_image_high < i_image_high.max()*0.00001
     fig = plot(contours=i_image_high, colors=fpol_image, vectors=chi_image,
          vectors_values=None, colors_mask=colors_mask, min_rel_level=0.05,
          vinc=10, vectors_mask=colors_mask, vector_color="k", contour_color="k", cmap="jet", color_clim=[0, 0.75],

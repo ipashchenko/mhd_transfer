@@ -12,15 +12,16 @@ from jet_image import JetImage, TwinJetImage, convert_difmap_model_file_to_CCFIT
 # frequencies. Common beam and mapsize must be specified.
 
 # Directory to save files
-save_dir = "/home/ilya/data/mf"
+save_dir = "/home/ilya/data/mf/pol"
 # Observed frequencies (GHz) of simulations. Must coincide with that in C++ code
 freqs_obs_ghz = [8.1, 12.1, 15.4]
 # Will be used for creating FITS images at each frequency
-common_mapsize = (512, 0.1)
+common_mapsize = (1024, 0.1)
 # Common beam in (mas, mas, deg). Can be arbitrary small/big
-common_beam = (0.25, 0.25, 0)
+# common_beam = (0.25, 0.25, 0)
+common_beam = None
 # Where C++ result txt files?
-jetpol_run_directory = "cmake-build-release"
+jetpol_run_directory = "Release"
 # C++ code run parameters
 z = 0.00436
 n_along = 1200

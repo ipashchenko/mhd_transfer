@@ -20,7 +20,8 @@ from image import plot as iplot
 only_make_pics = False
 
 # Directory to save all
-save_dir = "/home/ilya/data/M87Lesha/fromZhenya/m87.kq.2018_04_28/art/beam24"
+# save_dir = "/home/ilya/data/M87Lesha/fromZhenya/m87.kq.2018_04_28/art/beam24"
+save_dir = "/home/ilya/data/M87Lesha/fromZhenya/m87.kq.2018_04_28/art"
 # Observed frequencies of simulations
 freqs_obs_ghz = [24, 43]
 freq_high = max(freqs_obs_ghz)
@@ -43,7 +44,7 @@ text_boxes = {24: "/home/ilya/data/M87Lesha/fromZhenya/m87.kq.2018_04_28/m87.k.2
               43: "/home/ilya/data/M87Lesha/fromZhenya/m87.kq.2018_04_28/m87.q.2018_04_28.fin_wins"}
 
 original_cc = create_clean_image_from_fits_file(model_ccfits_dict[24])
-common_beam = original_cc.beam
+# common_beam = original_cc.beam
 print("===================")
 print("Common beam wil be : ", common_beam)
 print("===================")
@@ -58,6 +59,19 @@ itrue_high = pf.getdata(os.path.join(save_dir, "ccmap_true_{}.fits".format(freq_
 itrue_low = pf.getdata(os.path.join(save_dir, "ccmap_true_{}.fits".format(freq_low))).squeeze()
 true_spix_array = np.log(itrue_low/itrue_high)/np.log(freq_low/freq_high)
 
+# TODO: Make images with the same pixel/size!
+# for freq in freqs_obs_ghz:
+#     clean_difmap(fname=template_uvfits_dict[freq], path=save_dir,
+#                  outfname="cc_common_original_{}.fits".format(freq), outpath=save_dir, stokes="i",
+#                  mapsize_clean=common_mapsize, path_to_script=path_to_script,
+#                  show_difmap_output=True,
+#                  beam_restore=common_beam, text_box=text_boxes[freq],
+#                  dfm_model=os.path.join(save_dir, "model_cc_common_original_i_{}.mdl".format(freq)))
+
+
+itrue_high_image = create_image_from_fits_file(os.path.join(save_dir, "cc_common_original_{}.fits".format(freq_high))).image
+itrue_low_image = create_image_from_fits_file(os.path.join(save_dir, "cc_common_original_{}.fits".format(freq_low))).image
+true_spix_array_image = np.log(itrue_low_image/itrue_high_image)/np.log(freq_low/freq_high)
 
 if not only_make_pics:
     # common_beam = create_clean_image_from_fits_file(os.path.join(save_dir, "template_cc_i_{}.fits".format(freq_high))).beam
@@ -169,6 +183,13 @@ fig = iplot(ipol, spix_array - 2*bias_spix_array, x=ccimages[freq_low].x, y=ccim
             cmap='nipy_spectral', contour_color='black', plot_colorbar=True,
             contour_linewidth=0.25)
 fig.savefig(os.path.join(save_dir, "spix_bias_corrected_x2_{}GHz_{}GHz.png".format(freq_high, freq_low)), dpi=600, bbox_inches="tight")
+
+fig = iplot(ipol, true_spix_array_image - bias_spix_array, x=ccimages[freq_low].x, y=ccimages[freq_low].y,
+            min_abs_level=5*std, colors_mask=common_imask, color_clim=[-1.5, 0.5], blc=blc, trc=trc,
+            beam=beam, close=True, colorbar_label=r"$\alpha$", show_beam=True, show=False,
+            cmap='nipy_spectral', contour_color='black', plot_colorbar=True,
+            contour_linewidth=0.25)
+fig.savefig(os.path.join(save_dir, "true_spix_image_bias_corrected_{}GHz_{}GHz.png".format(freq_high, freq_low)), dpi=600, bbox_inches="tight")
 
 fig = iplot(ipol, true_spix_array, x=ccimages[freq_low].x, y=ccimages[freq_low].y,
             min_abs_level=5*std, colors_mask=common_imask, color_clim=[-1.5, 0.5], blc=blc, trc=trc,

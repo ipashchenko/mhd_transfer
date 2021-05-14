@@ -159,7 +159,8 @@ class JetImage(ABC):
     def load_image_stokes(self, stokes, image_stokes_file, scale=1.0):
         self.stokes = stokes
         image = np.loadtxt(image_stokes_file)
-        print("Loaded image with total flux = Jy", np.nansum(image))
+        print("Loaded image with total flux = {} Jy, shape = {}".format(np.nansum(image), image.shape))
+        print("Scaling image x ", scale)
         image *= scale
         image[np.isnan(image)] = 0.0
         self._image = image
@@ -666,10 +667,9 @@ if __name__ == "__main__":
 
     # This applies to my local work in CLion. Change it to ``Release`` (or whatever) if necessary.
     jetpol_run_directory = "Release"
-    n_along = 600
-    # n_across = 200
+    n_along = 1000
     n_across = 100
-    lg_pixel_size_mas_min = np.log10(0.01)
+    lg_pixel_size_mas_min = np.log10(0.025)
     # lg_pixel_size_mas_min = np.log10(0.003)
     # lg_pixel_size_mas_max = np.log10(0.1)
     lg_pixel_size_mas_max = np.log10(0.05)
@@ -677,7 +677,9 @@ if __name__ == "__main__":
     freq_ghz_low = None
     # mhd_code = "best"
     # mhd_code = "m2s10g2b44.614955r0.000595"
-    mhd_code = "m1s10g2b123.971372r0.000369"
+    # mhd_code = "m1s10g2b123.971372r0.000369"
+    mhd_code = "m1s10g2b123.971372r0.000369_psi_1.000000_dpsi_0.015000"
+    # mhd_code = "m1s10g2b123.971372r0.000369_psi_0.750000_dpsi_0.015000"
     rt_code = "n1"
 
     plot_images(mhd_code=mhd_code, rt_code=rt_code, freq_ghz_high=freq_ghz_high, freq_ghz_low=freq_ghz_low,

@@ -231,6 +231,8 @@ class ByHandSimulationNField: public PowerLawNField {
                                double scale_factor_border=1.0,
                                double psi_mean = 1.0,
                                double psi_width = 0.1,
+                               double psi_width_axis = 0.1,
+                               double scale_factor_axis=0.0,
                                double constant_floor_scale = 0.0,
                                double n = 1.0);
         double _nf(const Vector3d &point, double psi) const override;
@@ -238,6 +240,9 @@ class ByHandSimulationNField: public PowerLawNField {
     private:
         // Scale factor for NT particles density at the border (0, 1).
         double scale_factor_border_;
+        double psi_width_axis_;
+        // Scale factor for NT particles density at the axis (0, 1).
+        double scale_factor_axis_;
         // (0, 1) Maximal fraction of the cold particles that can be heated.
         double max_frac_cold_;
         // Psi of border NT particles density enhancement: mean (0, 1) and width of Gaussian profile

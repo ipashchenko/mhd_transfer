@@ -410,10 +410,12 @@ void check_psi_interpolations(const std::string& mhd_run_name) {
     }
 }
 
-std::vector<double> run_on_simulations(const std::string& mhd_run_name, double n_scale_nt, double n_scale_border,
+std::vector<double> run_on_simulations(const std::string& mhd_run_name,
+                                       double n_scale_nt, double n_scale_border, double n_scale_axis,
                                        double gamma_min, bool anisotropic_s,
                                        const std::string& particles_heating_model,
-                                       double Psi_c, double sigma_Psi, double relerr) {
+                                       double Psi_c_border, double sigma_Psi_border, double sigma_Psi_axis,
+                                       double relerr) {
 
     auto t1 = Clock::now();
     std::clock_t start;
@@ -555,7 +557,8 @@ std::vector<double> run_on_simulations(const std::string& mhd_run_name, double n
 //                                           s, gamma_min, anisotropic_s, n_scale_nt, max_frac_cold, n_scale_border,
 //                                           0.5, 0.01);
     ByHandSimulationNField nfield(&tr_ncold, true, s, gamma_min, anisotropic_s,
-                                  max_frac_cold, n_scale_border, Psi_c, sigma_Psi, n_scale_nt);
+                                  max_frac_cold, n_scale_border, Psi_c_border, sigma_Psi_border, sigma_Psi_axis,
+                                  n_scale_axis, n_scale_nt);
 
     // Setting V-field using simulations ===============================================================================
     Delaunay_triangulation tr_Gamma;
@@ -576,9 +579,9 @@ std::vector<double> run_on_simulations(const std::string& mhd_run_name, double n
 //    double pixel_size_mas_stop = 0.025;
     // From 0.001 pc/pixel - that is for z=0.02 pc
     // Non-uniform pixel from ``pixel_size_mas_start`` (near BH) to ``pixel_size_mas_stop`` (image edges)
-    int number_of_pixels_along = 600;
-    int number_of_pixels_across = 100;
-    double pixel_size_mas_start = 0.01;
+    int number_of_pixels_along = 800;
+    int number_of_pixels_across = 150;
+    double pixel_size_mas_start = 0.025;
     double pixel_size_mas_stop = 0.05;
     // 86 Ghz
 //    int number_of_pixels_along = 600;
@@ -640,7 +643,8 @@ std::vector<double> run_on_simulations(const std::string& mhd_run_name, double n
         int n_ = 100;
 
 //        string polarization = "I";
-        string polarization = "speed";
+//        string polarization = "speed";
+        string polarization = "full";
 
         for(int i_nu=0; i_nu < nu_observed_ghz.size(); i_nu++) {
 
@@ -676,7 +680,7 @@ std::vector<double> run_on_simulations(const std::string& mhd_run_name, double n
             oss << std::setprecision(8) << std::noshowpoint << nu_observed_ghz[i_nu];
             std::string freq_name = oss.str();
 
-            std::string prefix = "_psi_" + std::to_string(Psi_c) + "_dpsi_" + std::to_string(sigma_Psi);
+            std::string prefix = "_psi_" + std::to_string(Psi_c_border) + "_dpsi_" + std::to_string(sigma_Psi_border);
 
             std::string file_tau, file_tau_fr, file_i, file_beta, file_q, file_u, file_v, file_l;
             if(jet_side) {
@@ -812,8 +816,8 @@ std::vector<double> run_on_simulations(const std::string& mhd_run_name, double n
 }
 
 
-// To run in parallel when fil params.txt has 11 parameter sets:
-// parallel --files --results result_{1}_amp_{3}_Psi_{4}_dPsi_{5} --joblog log --jobs 11 -a params.txt -n 1 -m --colsep ' ' "./mhd_transfer"
+// To run in parallel when fil params_3ridges.txt has 3 parameter sets:
+// parallel --files --results result_{1}_AmpAxis_{3}_AmpEdges_{4}_PsiEdges_{5}_dPsiEdges_{6}_dPsiAxis_{7} --joblog log --jobs 3 -a params_3ridges.txt -n 1 -m --colsep ' ' "./mhd_transfer"
 int main(int argc, char *argv[]) {
 
     bool anisotropic_s = false;
@@ -823,29 +827,36 @@ int main(int argc, char *argv[]) {
     std::vector<string> implemented_heating_model_types{"bsq", "n", "jsq", "byhand"};
     std::vector<double> total_fluxes;
 
-    if(argc != 7){
+    if(argc != 9){
         std::cout << argc << "\n";
-        std::cout << "Supply MHD code, NT density scale factor (0 < f [< 1]), NT border density scale factor (0 < f [< 1]),"
-                     " central Psi, width Psi, rel.error\n" << "\n";
+        std::cout << "Supply MHD code, NT uniform density scale factor (0 < f [< 1]), NT axis scale factor (0 < f [<1]),"
+                     " NT border density scale factor (0 < f [< 1]),"
+                     " center Psi for border, width Psi for border, width Psi for axis, rel.error\n" << "\n";
         return 1;
     }
     else {
         std::cout << "Doing radiation transport for MHD code " << argv[1] << "\n";
 
         double n_scale_nt = atof(argv[2]);
-        std::cout << "scaling factor for NT particles density = " << argv[2] << "\n";
+        std::cout << "scaling factor for NT particles uniform density = " << argv[2] << "\n";
 
-        double n_scale_border = atof(argv[3]);
-        std::cout << "scaling factor for NT particles density at the border = " << argv[3] << "\n";
+        double n_scale_axis = atof(argv[3]);
+        std::cout << "scaling factor for NT particles density at the axis = " << argv[3] << "\n";
 
-        double Psi_c = atof(argv[4]);
-        std::cout << "Psi_c = " << argv[4] << "\n";
+        double n_scale_border = atof(argv[4]);
+        std::cout << "scaling factor for NT particles density at the border = " << argv[4] << "\n";
 
-        double sigma_Psi = atof(argv[5]);
-        std::cout << "sigma_Psi = " << argv[5] << "\n";
+        double Psi_c = atof(argv[5]);
+        std::cout << "Psi_c for border = " << argv[5] << "\n";
 
-        double relerr = atof(argv[6]);
-        std::cout << "relerr = " << argv[6] << "\n";
+        double sigma_Psi = atof(argv[6]);
+        std::cout << "sigma_Psi for border = " << argv[6] << "\n";
+
+        double sigma_Psi_axis = atof(argv[7]);
+        std::cout << "sigma_Psi for axis = " << argv[7] << "\n";
+
+        double relerr = atof(argv[8]);
+        std::cout << "relerr = " << argv[8] << "\n";
 
 //        double gamma_min = atof(argv[4]);
 //        std::cout << "gamma_min = " << argv[4] << "\n";
@@ -864,8 +875,10 @@ int main(int argc, char *argv[]) {
         {
             throw NotImplmentedParticlesHeating(particles_heating_model);
         }
-        total_fluxes = run_on_simulations(argv[1], n_scale_nt, n_scale_border, gamma_min,
-                                          anisotropic_s, particles_heating_model, Psi_c, sigma_Psi, relerr);
+        total_fluxes = run_on_simulations(argv[1], n_scale_nt, n_scale_border, n_scale_axis, gamma_min,
+                                          anisotropic_s, particles_heating_model,
+                                          Psi_c, sigma_Psi, sigma_Psi_axis,
+                                          relerr);
     }
     for(auto total_flux: total_fluxes){
         std::cout << "Total flux [Jy] = " << total_flux << "\n";

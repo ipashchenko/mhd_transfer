@@ -1,3 +1,4 @@
+import os
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -315,6 +316,7 @@ def filter_CC(ccfits, mask, outname=None, plotsave_fn=None):
         outname = ccfits
     hdus.writeto(outname, overwrite=True)
 
+
 def filter_CC_dimap_by_rmax(dfm_model_in, r_max, dfm_model_out=None):
     comps = np.loadtxt(dfm_model_in, comments="!")
     len_in = len(comps)
@@ -324,6 +326,7 @@ def filter_CC_dimap_by_rmax(dfm_model_in, r_max, dfm_model_out=None):
     if dfm_model_out is None:
         dfm_model_out = dfm_model_in
     np.savetxt(dfm_model_out, comps)
+
 
 def CCFITS_to_difmap(ccfits, difmap_mdl_file, shift=None):
     hdus = pf.open(ccfits)
@@ -365,6 +368,24 @@ def get_mask_for_ccstack(iccfiles, cc_conv_cutoff_mjy=0.0075, kern_width=10):
     bbox = max_prop.bbox
     mask[bbox[0]:bbox[2], bbox[1]:bbox[3]] = max_prop.filled_image
     return mask
+
+
+def rotate_difmap_model(difmap_infile, difmap_outfile, PA_deg):
+    comps = np.loadtxt(difmap_infile, comments="!")
+    # https://stackoverflow.com/a/49805976
+    axes = plt.subplot(111, projection='polar')
+    # theta=0 at the top
+    axes.set_theta_zero_location("N")
+    # Theta increases in the counterclockwise direction
+    axes.set_theta_direction(1)
+    axes.plot(np.deg2rad(comps[:, 2]), comps[:, 1], '.', color="C0", label="before")
+    comps[:, 2] = comps[:, 2] + PA_deg
+    axes.plot(np.deg2rad(comps[:, 2]), comps[:, 1], '.', color="C1", label="after")
+    plt.legend()
+    plt.show()
+    if difmap_outfile is None:
+        difmap_outfile = difmap_infile
+    np.savetxt(difmap_outfile, comps)
 
 
 def convert_difmap_model_file_to_CCFITS(difmap_model_file, stokes, mapsize, restore_beam, uvfits_template, out_ccfits,
@@ -411,3 +432,128 @@ def convert_difmap_model_file_to_CCFITS(difmap_model_file, stokes, mapsize, rest
     if show_difmap_output:
         print(outs)
         print(errs)
+
+
+def get_transverse_profile(ccfits, PA, nslices=200, plot_zobs_min=0, plot_zobs_max=None, beam=None, pixsize_mas=None,
+                           treat_as_numpy_array=False, save_dir=None, save_prefix=None, save_figs=True, fig=None,
+                           alpha=1.0, n_good_min=10, fig_res=None):
+    from scipy.ndimage import rotate
+    from astropy.stats import mad_std
+    from astropy.modeling import fitting
+    from astropy.modeling.models import custom_model, Gaussian1D
+
+    if save_dir is None:
+        save_dir = os.getcwd()
+    if save_prefix is None:
+        save_prefix = "transverse_profiles"
+
+    if not treat_as_numpy_array:
+        ccimage = create_clean_image_from_fits_file(ccfits)
+        pixsize_mas = abs(ccimage.pixsize[0])*u.rad.to(u.mas)
+        beam = ccimage.beam
+        print("Beam (mas) : ", beam)
+        image = ccimage.image
+    else:
+        image = ccfits
+
+    size = image.shape[0]
+    delta = round(size/2/nslices)
+    print("Pixsize = {:.2f} mas".format(pixsize_mas))
+    # Make jet directing down when plotting with origin=lower in matshow
+    std = mad_std(image)
+    print("std = {:.2f} mJy/beam".format(1000*std))
+    image = rotate(image, PA, reshape=False)
+    widths_mas = list()
+    pos_mas = list()
+    for i in range(nslices):
+        imslice = image[int(size/2) - delta*i, :]
+        g_init = Gaussian1D(amplitude=np.max(imslice), mean=size/2, stddev=beam[0]/pixsize_mas, fixed={'mean': True})
+        fit_g = fitting.LevMarLSQFitter()
+        x = np.arange(size)
+        y = imslice
+        mask = imslice > 5*std
+        n_good = np.count_nonzero(mask)
+        print("Number of unmasked elements for z = {:.2f} is N = {}".format(delta*i*pixsize_mas, n_good))
+        if n_good < n_good_min:
+            continue
+        g = fit_g(g_init, x[mask], y[mask], weights=1/std)
+        print("Convolved FWHM = {:.2f} mas".format(g.fwhm*pixsize_mas))
+        width_mas_deconvolved = np.sqrt((g.fwhm*pixsize_mas)**2 - beam[0]**2)
+        print("Deconvolved FWHM = {:.2f} mas".format(width_mas_deconvolved))
+        if np.isnan(width_mas_deconvolved):
+            continue
+        widths_mas.append(width_mas_deconvolved)
+        pos_mas.append(delta*i*pixsize_mas)
+
+    pos_mas = np.array(pos_mas)
+    widths_mas = np.array(widths_mas)
+    if fig is None:
+        fig, axes = plt.subplots(1, 1)
+    else:
+        axes = fig.get_axes()[0]
+    if plot_zobs_max is not None:
+        assert plot_zobs_max > plot_zobs_min
+        axes.set_xlim([plot_zobs_min, plot_zobs_max])
+        mask = np.logical_and(pos_mas < plot_zobs_max, pos_mas > plot_zobs_min)
+        pos_to_plot = pos_mas[mask]
+        widths_to_plot = widths_mas[mask]
+    else:
+        widths_to_plot = widths_mas
+        pos_to_plot = pos_mas
+
+    axes.plot(pos_to_plot, widths_to_plot, color="C0", alpha=alpha)
+    axes.set_xlabel(r"$z_{\rm obs}$, mas")
+    axes.set_ylabel("FWHM, mas")
+    plt.xscale("log")
+    plt.yscale("log")
+    if save_figs:
+        fig.savefig(os.path.join(save_dir, "{}.png".format(save_prefix)), bbox_inches="tight", dpi=300)
+    plt.show()
+
+    # Now fit profile
+    @custom_model
+    def power_law(r, amp=1.0, r0=0.0, k=0.5):
+        return amp*(r + r0)**k
+    pl_init = power_law(fixed={"r0": True})
+    fit_pl = fitting.LevMarLSQFitter()
+    pl = fit_pl(pl_init, pos_to_plot, widths_to_plot, maxiter=10000)
+    print(fit_pl.fit_info)
+    print("k = ", pl.k)
+    print("r0 = ", pl.r0)
+    print("amp = ", pl.amp)
+
+    # Plot fit
+    xx = np.linspace(np.min(pos_to_plot), np.max(pos_to_plot), 1000)
+    yy = pl(xx)
+    fig_, axes = plt.subplots(1, 1)
+    axes.plot(xx, yy, color="C1", label="k = {:.2f}".format(pl.k.value))
+    axes.scatter(pos_to_plot, widths_to_plot, color="C0", label="data", s=2)
+    axes.set_xlabel(r"$z_{\rm obs}$, mas")
+    axes.set_ylabel("FWHM, mas")
+    plt.legend()
+    plt.xscale("log")
+    plt.yscale("log")
+    if save_figs:
+        fig_.savefig(os.path.join(save_dir, "{}_fit.png".format(save_prefix)), bbox_inches="tight", dpi=300)
+    plt.show()
+    plt.close(fig_)
+
+    # Make residuals and plot them
+    res = widths_to_plot - pl(pos_to_plot)
+    max_res = 1.2*np.max(np.abs(res))
+
+    if fig_res is None:
+        fig_res, axes = plt.subplots(1, 1)
+    else:
+        axes = fig_res.get_axes()[0]
+
+    axes.plot(pos_to_plot, res, color="C0", alpha=1.0)
+    # axes.set_ylim([-max_res, max_res])
+    axes.set_ylim([-2, 2])
+    axes.set_xlabel(r"$z_{\rm obs}$, mas")
+    axes.set_ylabel("residual FWHM, mas")
+    if save_figs:
+        fig_res.savefig(os.path.join(save_dir, "{}_residual_width.png".format(save_prefix)), bbox_inches="tight", dpi=300)
+    plt.show()
+
+    return fig, fig_res

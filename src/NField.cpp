@@ -519,14 +519,18 @@ ByHandSimulationNField::ByHandSimulationNField(Delaunay_triangulation *tr_cold,
                                                double scale_factor_border,
                                                double psi_mean,
                                                double psi_width,
+                                               double psi_width_axis,
+                                               double scale_factor_axis,
                                                double constant_floor_scale,
                                                double n) :
         PowerLawNField(in_plasma_frame, s, gamma_min, nullptr, "pairs", changing_s, 0.0),
         interp_cold_(tr_cold),
         scale_factor_border_(scale_factor_border),
+        scale_factor_axis_(scale_factor_axis),
         max_frac_cold_(max_frac_cold),
         psi_mean_(psi_mean),
         psi_width_(psi_width),
+        psi_width_axis_(psi_width_axis),
         constant_floor_scale_(constant_floor_scale),
         n_(n) {}
 
@@ -535,28 +539,30 @@ double ByHandSimulationNField::_nf(const Vector3d &point, double psi) const {
 
     // Outer ridge
     // Step profile
-//    double amp;
+//    double amp_border;
 //    if(abs(psi - psi_mean_) < psi_width_){
-//        amp = 1.0;
+//        amp_border = 1.0;
 //    }else {
-//        amp = 0.0;
+//        amp_border = 0.0;
 //    }
     // Generalized Gaussian profile with maximum equal to 1.0 at ``psi_mean_``
-    double amp = generalized1_gaussian1d(psi, psi_mean_, psi_width_, 2);
+    double amp_border = generalized1_gaussian1d(psi, psi_mean_, psi_width_, 2);
+    double amp_axis = generalized1_gaussian1d(psi, 0.0, psi_width_axis_, 2);
 
     // Number of cold particles in plasma frame at current given point
     double n_cold = interp_cold_.interpolated_value({psi, z/pc});
-    double n_nt_border = scale_factor_border_ * amp * pow(z/pc, -n_);
+    double n_nt_border = scale_factor_border_ * amp_border * pow(z / pc, -n_);
+    double n_nt_axis = scale_factor_axis_ * amp_axis * pow(z/pc, -n_);
     double n_nt_const = constant_floor_scale_ * pow(z/pc, -n_);
 
     // Maximum number of cold particles that can be heated
     double n_cold_max = max_frac_cold_*n_cold;
 
     // Number of non-thermal particles can't be larger than some fraction (``max_frac_cold_``) of all cold particles
-    if(n_nt_border + n_nt_const > n_cold_max) {
+    if(n_nt_border + n_nt_axis + n_nt_const > n_cold_max) {
         std::cout << "Number of NT particles can't be larger than number of cold particles!" << std::endl;
         return n_cold_max;
     }else {
-        return n_nt_border + n_nt_const;
+        return n_nt_border + n_nt_axis + n_nt_const;
     }
 };
