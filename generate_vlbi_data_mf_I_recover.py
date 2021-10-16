@@ -16,20 +16,26 @@ from from_fits import create_clean_image_from_fits_file, create_image_from_fits_
 from image_ops import spix_map
 from image import plot as iplot
 
-only_make_pics = False
+only_make_pics = True
 # S ~ nu^{+alpha}
 alpha_true = -0.5
+# Scale model image to obtain ~ 3 Jy
+# bk
+scale = 0.28
+# 2 ridges
+scale = 0.5
 
 # Directory to save all
 # Original directory
 # save_dir = "/home/ilya/data/M87Lesha/art"
-save_dir = "/home/ilya/data/M87Lesha/artMOJAVE/central_ridge/recover_test"
+# save_dir = "/home/ilya/data/M87Lesha/artMOJAVE/central_ridge/recover_test"
+save_dir = "/home/ilya/data/mf/spix/recover"
 # Observed frequencies of simulations
 freqs_obs_ghz = [8.1, 15.4]
 # freqs_obs_ghz = [15.4]
 
 # Multiplicative factor for noise added to model visibilities.
-noise_scale_factor = 0.1
+noise_scale_factor = 1.0
 # Common size of the map and pixel size (mas)
 common_mapsize = (1024, 0.1)
 # Common beam size (mas, mas, deg)
@@ -40,8 +46,8 @@ template_x_ccimage = create_clean_image_from_fits_file("/home/ilya/data/M87Lesha
 
 mhdrt_code = "m1s10g2b123.971372r0.000369_psi_1.000000_dpsi_0.015000"
 # Original directory
-# jetpol_files_directory = "/home/ilya/github/mhd_transfer/Release"
-jetpol_files_directory = "/home/ilya/data/M87Lesha/mhd_images_bkp/3ridges"
+jetpol_files_directory = "/home/ilya/github/mhd_transfer/Release"
+# jetpol_files_directory = "/home/ilya/data/M87Lesha/mhd_images_bkp/3ridges"
 
 # C++ code run parameters
 z = 0.00436
@@ -53,8 +59,10 @@ lg_pixel_size_mas_max = np.log10(0.05)
 path_to_script = "../ve/difmap/final_clean_nw"
 # Lesha's data
 need_downscale_uv = True
-template_uvfits_dict = {15.4: "/home/ilya/data/M87Lesha/to_ilya/1228+126.U.2009_05_23C.uvf_cal",
-                        8.1: "/home/ilya/data/M87Lesha/to_ilya/1228+126.X.2009_05_23.uvf_cal"}
+# template_uvfits_dict = {15.4: "/home/ilya/data/M87Lesha/to_ilya/1228+126.U.2009_05_23C.uvf_cal",
+#                         8.1: "/home/ilya/data/M87Lesha/to_ilya/1228+126.X.2009_05_23.uvf_cal"}
+template_uvfits_dict = {15.4: "/home/ilya/data/M87Lesha/to_ilya/1228+126.U.2009_05_23C_ta60.uvf_cal",
+                        8.1: "/home/ilya/data/M87Lesha/to_ilya/1228+126.X.2009_05_23_ta60.uvf_cal"}
 # MOJAVE data
 # need_downscale_uv = False
 # template_uvfits_dict = {15.4: "/home/ilya/data/M87Lesha/artMOJAVE/1228+126.u.2020_07_02.uvf",
@@ -78,7 +86,8 @@ if not only_make_pics:
                       lg_pixel_size_mas_min=lg_pixel_size_mas_min, lg_pixel_size_mas_max=lg_pixel_size_mas_max,
                       jet_side=True, rot=np.deg2rad(-107.0))
         # FIXME: Why this doesn't work?
-        jm.load_image_stokes("I", "{}/{}_jet_image_i_{}.txt".format(jetpol_files_directory, mhdrt_code, 15.4), scale=(15.4/freq)**(-alpha_true))
+        jm.load_image_stokes("I", "{}/{}_jet_image_i_{}.txt".format(jetpol_files_directory, mhdrt_code, 15.4),
+                             scale=scale*(15.4/freq)**(-alpha_true))
         # Convert to difmap model format
         jm.save_image_to_difmap_format("{}/true_jet_model_i_{}.txt".format(save_dir, freq))
         # Rotate
@@ -127,6 +136,7 @@ if not only_make_pics:
         # If one needs to decrease the noise this is the way to do it
         for baseline, baseline_noise_std in noise.items():
             noise.update({baseline: noise_scale_factor*baseline_noise_std})
+        # FIXME: Need to filter CC!
         jm = create_model_from_fits_file(os.path.join(save_dir, "convolved_obs_jet_model_i_{}.fits".format(freq)))
         uvdata.substitute([jm])
         uvdata.noise_add(noise)
@@ -267,6 +277,19 @@ art_spix_array = np.log(ipol_arrays[freq_low]/ipol_arrays[freq_high])/np.log(fre
 #                                                           mask=common_imask, outfile=None, outdir=None,
 #                                                           mask_on_chisq=False, ampcal_uncertainties=None)
 
+
+
+# Bias of the I
+i_bias_low = ipol_arrays[freq_low] - iobs_convolved_low.image
+i_bias_high = ipol_arrays[freq_high] - iobs_convolved_high.image
+# Correct "observed" for the bias
+ccimages_obs = {freq: create_image_from_fits_file(os.path.join(save_dir, "observed_cc_i_{}.fits".format(freq)))
+                for freq in freqs_obs_ghz}
+i_bc_low = ccimages_obs[freq_low].image - i_bias_low
+i_bc_high = ccimages_obs[freq_high].image - i_bias_high
+alpha_from_bc = np.log(i_bc_low/i_bc_high)/np.log(freq_low/freq_high)
+
+
 fig = iplot(ipol, art_spix_array, x=ccimages[freq_low].x, y=ccimages[freq_low].y,
             min_abs_level=3*std, colors_mask=common_imask, color_clim=[-1.0, 0.5], blc=blc, trc=trc,
             beam=beam, close=True, colorbar_label=r"$\alpha$", show_beam=True, show=False,
@@ -275,22 +298,17 @@ fig = iplot(ipol, art_spix_array, x=ccimages[freq_low].x, y=ccimages[freq_low].y
 fig.savefig(os.path.join(save_dir, "art_spix_{}GHz_{}GHz.png".format(freq_high, freq_low)), dpi=600, bbox_inches="tight")
 
 
-# Estimate the bias as (art - obs) and plot it
-bias_spix = art_spix_array - obs_convolved_spix_array
-fig = iplot(ipol, bias_spix, x=ccimages[freq_low].x, y=ccimages[freq_low].y,
-            min_abs_level=3*std, colors_mask=common_imask, color_clim=[-0.5, 0.5], blc=blc, trc=trc,
+fig = iplot(ipol, alpha_from_bc, x=ccimages[freq_low].x, y=ccimages[freq_low].y,
+            min_abs_level=3*std, colors_mask=common_imask, color_clim=[-1.0, 0.5], blc=blc, trc=trc,
             beam=beam, close=True, colorbar_label=r"$\alpha$", show_beam=True, show=False,
-            cmap='bwr', contour_color='black', plot_colorbar=True,
+            cmap='gist_ncar', contour_color='black', plot_colorbar=True,
             contour_linewidth=0.25)
-fig.savefig(os.path.join(save_dir, "spix_bias_{}GHz_{}GHz.png".format(freq_high, freq_low)), dpi=600, bbox_inches="tight")
-
-# Correct the observed spix using obtained bias estimate
-bias_corrected_obs_spix = obs_spix_array - bias_spix
+fig.savefig(os.path.join(save_dir, "spix_from_I_bc_{}GHz_{}GHz.png".format(freq_high, freq_low)), dpi=600, bbox_inches="tight")
 
 # Deviations of the original observed spix map from the ground truth
 dev_before = obs_spix_array - true_convolved_spix_array
 # Deviations of the bias-corrected original observed spix map from the ground truth
-dev_after = bias_corrected_obs_spix - true_convolved_spix_array
+dev_after = alpha_from_bc - true_convolved_spix_array
 
 fig = iplot(ipol, dev_before, x=ccimages[freq_low].x, y=ccimages[freq_low].y,
             min_abs_level=3*std, colors_mask=common_imask, color_clim=[-0.5, 0.5], blc=blc, trc=trc,

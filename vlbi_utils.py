@@ -1,4 +1,5 @@
 import os
+import datetime
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -557,3 +558,26 @@ def get_transverse_profile(ccfits, PA, nslices=200, plot_zobs_min=0, plot_zobs_m
     plt.show()
 
     return fig, fig_res
+
+
+def time_average(uvfits, outfname, time_sec=120, show_difmap_output=True,
+                 reweight=True):
+    stamp = datetime.datetime.now()
+    command_file = "difmap_commands_{}".format(stamp.isoformat())
+
+    difmapout = open(command_file, "w")
+    if reweight:
+        difmapout.write("observe " + uvfits + ", {}, true\n".format(time_sec))
+    else:
+        difmapout.write("observe " + uvfits + ", {}, false\n".format(time_sec))
+    difmapout.write("wobs {}\n".format(outfname))
+    difmapout.write("exit\n")
+    difmapout.close()
+    # TODO: Use subprocess for silent cleaning?
+    shell_command = "difmap < " + command_file + " 2>&1"
+    if not show_difmap_output:
+        shell_command += " >/dev/null"
+    os.system(shell_command)
+
+    # Remove command file
+    os.unlink(command_file)

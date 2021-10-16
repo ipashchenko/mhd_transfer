@@ -547,6 +547,7 @@ std::vector<double> run_on_simulations(const std::string& mhd_run_name,
     // of the cold particles AND heating efficiency is modulated by local magnetization as in Broderick+2010
     double max_frac_cold = 0.1;
     double s = 2.5;
+    double n = 1.5;
     std::string constrain_type;
 //    constrain_type = "sigma";
     constrain_type = "none";
@@ -558,7 +559,7 @@ std::vector<double> run_on_simulations(const std::string& mhd_run_name,
 //                                           0.5, 0.01);
     ByHandSimulationNField nfield(&tr_ncold, true, s, gamma_min, anisotropic_s,
                                   max_frac_cold, n_scale_border, Psi_c_border, sigma_Psi_border, sigma_Psi_axis,
-                                  n_scale_axis, n_scale_nt);
+                                  n_scale_axis, n_scale_nt, n);
 
     // Setting V-field using simulations ===============================================================================
     Delaunay_triangulation tr_Gamma;
@@ -681,6 +682,7 @@ std::vector<double> run_on_simulations(const std::string& mhd_run_name,
             std::string freq_name = oss.str();
 
             std::string prefix = "_psi_" + std::to_string(Psi_c_border) + "_dpsi_" + std::to_string(sigma_Psi_border);
+//            std::string prefix = "_nscA_" + std::to_string(n_scale_axis) + "_dpsiA_" + std::to_string(sigma_Psi_axis) + "_nscB_" + std::to_string(n_scale_border) + "_psiB_" + std::to_string(Psi_c_border) + "_dpsiB_" + std::to_string(sigma_Psi_border);
 
             std::string file_tau, file_tau_fr, file_i, file_beta, file_q, file_u, file_v, file_l;
             if(jet_side) {
@@ -886,9 +888,11 @@ int main(int argc, char *argv[]) {
 //
 //
     // From IDE
-    total_fluxes = run_on_simulations("m1s10g2b123.971372r0.000369", 0.0, 4.0, 2.0,
+    // nscale_border = 8.0, nscale_nt = 0.01 and nscale_axis = 0.1 gives nearly the same brightness of central and outer
+    // ridges (mainly because of nscale_nt). nscale_nt = 0.001 gives several times lower central brightness.
+    total_fluxes = run_on_simulations("m1s10g2b123.971372r0.000369", 0.00001, 8.0, 0.0,
                                       gamma_min, anisotropic_s, particles_heating_model,
-                                      1.0, 0.015, 0.03, 1e-05);
+                                      1.0, 0.015, 0.03, 1e-06);
     for(auto total_flux: total_fluxes){
         std::cout << "Total flux [Jy] = " << total_flux << "\n";
     }

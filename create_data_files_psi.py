@@ -1,6 +1,7 @@
 # This creates data files in format (z[pc], Psi, value) and single (z[pc], r[pc], Psi)
 import os
 import sys
+import re
 import glob
 import numpy as np
 import matplotlib

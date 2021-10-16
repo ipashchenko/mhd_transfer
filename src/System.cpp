@@ -17,7 +17,7 @@ System::System(Jet *newjet,
 
 // FIXME: Sometimes tau becomes negative!!!
 void Tau::operator()(const double &x, double &dxdt, const double t) {
-    std::cout << "--- tau = " << x << "\n";
+//    std::cout << "--- tau = " << x << "\n";
     Vector3d point = point_start - t * ray_direction;
     dxdt = jet->getKI(point, ray_direction, nu);
 }
@@ -52,7 +52,7 @@ void TauFR::operator()(const double &x, double &dxdt, double t) {
 
 // FIXME: Test w/o compensating negative
 void I::operator()(const double &x, double &dxdt, const double t) {
-    std::cout << "I = " << x << "\n";
+//    std::cout << "I = " << x << "\n";
     Vector3d point = point_start + t * ray_direction;
 
     double k_i, eta_i;
