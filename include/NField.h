@@ -59,7 +59,7 @@ class NField {
 class PowerLawNField : public NField {
     public:
         PowerLawNField(bool in_plasma_frame, double s, double gamma_min, Geometry* geometry = nullptr,
-                       std::string plasma="normal", bool changing_s="false", double ds=0.0);
+                       std::string plasma="normal", bool changing_s=false, double ds=0.0);
         double get_s(const Vector3d &point) const;
         double get_s(Vector3d &b, Vector3d &n_los) const;
 
@@ -223,6 +223,7 @@ class ConstrainedBetaSimulationNField: public PowerLawNField {
 };
 
 
+// TODO: The only class that I need (with possible constrains)
 class ByHandSimulationNField: public PowerLawNField {
     public:
         ByHandSimulationNField(Delaunay_triangulation *tr_cold,
