@@ -125,4 +125,7 @@ void read_from_txt(const std::string& fn, std::vector< std::vector<double> >& pr
 //Type 1 (symmetric) GG for 1D case.
 double generalized1_gaussian1d(double x, double loc, double scale, double shape);
 
+//https://en.wikipedia.org/wiki/Logistic_function
+double logistic(double x, double L, double k, double x0);
+
 #endif //MHD_TRANSER_UTILS_H

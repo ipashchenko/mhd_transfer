@@ -414,6 +414,8 @@ std::vector<double> run_on_simulations(const std::string& mhd_run_name,
                                        double n_scale_nt, double n_scale_border, double n_scale_axis,
                                        double gamma_min, bool anisotropic_s,
                                        const std::string& particles_heating_model,
+                                       const std::string& constrain_type,
+                                       double max_frac_cold,
                                        double Psi_c_border, double sigma_Psi_border, double sigma_Psi_axis,
                                        double relerr) {
 
@@ -545,21 +547,22 @@ std::vector<double> run_on_simulations(const std::string& mhd_run_name,
 
     // Heating model with constrain that number density of NT particles can not exceed some fraction of number density
     // of the cold particles AND heating efficiency is modulated by local magnetization as in Broderick+2010
-    double max_frac_cold = 0.1;
+//    double max_frac_cold = 0.1;
     double s = 2.5;
     double n = 1.5;
-    std::string constrain_type;
+//    std::string constrain_type;
 //    constrain_type = "sigma";
-    constrain_type = "none";
+//    constrain_type = "none";
+    std::cout << "Particles heating mechanism : " << particles_heating_model << "\n";
     std::cout << "Particles heating supression : " << constrain_type << "\n";
     // psi_mean - psi_width > 1 => no sheath!
-//    ConstrainedBetaSimulationNField nfield(&tr_ncold, &tr_Bsq, &tr_jsq, &tr_sigma,
-//                                           particles_heating_model, constrain_type, true,
-//                                           s, gamma_min, anisotropic_s, n_scale_nt, max_frac_cold, n_scale_border,
-//                                           0.5, 0.01);
-    ByHandSimulationNField nfield(&tr_ncold, true, s, gamma_min, anisotropic_s,
-                                  max_frac_cold, n_scale_border, Psi_c_border, sigma_Psi_border, sigma_Psi_axis,
-                                  n_scale_axis, n_scale_nt, n);
+    ConstrainedBetaSimulationNField nfield(&tr_ncold, &tr_Bsq, &tr_jsq, &tr_sigma,
+                                           particles_heating_model, constrain_type, true,
+                                           s, gamma_min, anisotropic_s, n_scale_nt, max_frac_cold, n_scale_border,
+                                           0.5, 0.01);
+//    ByHandSimulationNField nfield(&tr_ncold, true, s, gamma_min, anisotropic_s,
+//                                  max_frac_cold, n_scale_border, Psi_c_border, sigma_Psi_border, sigma_Psi_axis,
+//                                  n_scale_axis, n_scale_nt, n);
 
     // Setting V-field using simulations ===============================================================================
     Delaunay_triangulation tr_Gamma;
@@ -574,16 +577,16 @@ std::vector<double> run_on_simulations(const std::string& mhd_run_name,
     // FIXME: Make coarser grid for scale estimation
     // Setting parameters of pixels and image ==========================================================================
     // These are OK for uniform pixel
-//    int number_of_pixels_along = 600;
-//    int number_of_pixels_across = 200;
-//    double pixel_size_mas_start = 0.025;
-//    double pixel_size_mas_stop = 0.025;
+    int number_of_pixels_along = 400;
+    int number_of_pixels_across = 100;
+    double pixel_size_mas_start = 0.05;
+    double pixel_size_mas_stop = 0.05;
     // From 0.001 pc/pixel - that is for z=0.02 pc
     // Non-uniform pixel from ``pixel_size_mas_start`` (near BH) to ``pixel_size_mas_stop`` (image edges)
-    int number_of_pixels_along = 800;
-    int number_of_pixels_across = 150;
-    double pixel_size_mas_start = 0.025;
-    double pixel_size_mas_stop = 0.05;
+//    int number_of_pixels_along = 800;
+//    int number_of_pixels_across = 150;
+//    double pixel_size_mas_start = 0.025;
+//    double pixel_size_mas_stop = 0.05;
     // 86 Ghz
 //    int number_of_pixels_along = 600;
 //    int number_of_pixels_across = 600;
@@ -643,9 +646,11 @@ std::vector<double> run_on_simulations(const std::string& mhd_run_name,
         double tau_min = pow(10.,tau_min_log10);
         int n_ = 100;
 
-        string polarization = "I";
+//        string polarization = "I";
 //        string polarization = "speed";
-//        string polarization = "full";
+        string polarization = "full";
+
+        std::cout << "Doing transfer type : " << polarization << "\n";
 
         for(int i_nu=0; i_nu < nu_observed_ghz.size(); i_nu++) {
 
@@ -681,8 +686,9 @@ std::vector<double> run_on_simulations(const std::string& mhd_run_name,
             oss << std::setprecision(8) << std::noshowpoint << nu_observed_ghz[i_nu];
             std::string freq_name = oss.str();
 
-            std::string prefix = "_psi_" + std::to_string(Psi_c_border) + "_dpsi_" + std::to_string(sigma_Psi_border);
+//            std::string prefix = "_psi_" + std::to_string(Psi_c_border) + "_dpsi_" + std::to_string(sigma_Psi_border);
 //            std::string prefix = "_nscA_" + std::to_string(n_scale_axis) + "_dpsiA_" + std::to_string(sigma_Psi_axis) + "_nscB_" + std::to_string(n_scale_border) + "_psiB_" + std::to_string(Psi_c_border) + "_dpsiB_" + std::to_string(sigma_Psi_border);
+            std::string prefix = "_" + particles_heating_model + "_" + constrain_type;
 
             std::string file_tau, file_tau_fr, file_i, file_beta, file_q, file_u, file_v, file_l;
             if(jet_side) {
@@ -823,8 +829,15 @@ std::vector<double> run_on_simulations(const std::string& mhd_run_name,
 int main(int argc, char *argv[]) {
 
     bool anisotropic_s = false;
-    std::string particles_heating_model = "byhand";
+    std::string particles_heating_model = "bsq";
+    std::string constrain_type = "none";
     double gamma_min = 100.0;
+    // For n-heating
+//    double max_frac_cold = 0.00001;
+    // For bsq-heating
+//    double max_frac_cold = 0.01;
+    // For by-hand border heating
+    double max_frac_cold = 0.1;
 
     std::vector<string> implemented_heating_model_types{"bsq", "n", "jsq", "byhand"};
     std::vector<double> total_fluxes;
@@ -887,17 +900,29 @@ int main(int argc, char *argv[]) {
 //    }
 //
 //
+
+
+
+
     // From IDE
     // nscale_border = 8.0, nscale_nt = 0.01 and nscale_axis = 0.1 gives nearly the same brightness of central and outer
     // ridges (mainly because of nscale_nt). nscale_nt = 0.001 gives several times lower central brightness.
-    total_fluxes = run_on_simulations("m1s10g2b123.971372r0.000369", 0.00001, 8.0, 0.0,
-                                      gamma_min, anisotropic_s, particles_heating_model,
-                                      1.0, 0.015, 0.03, 1e-06);
+    // m2s10g2b44.614955r0.000595
+    // m1s10g2b123.971372r0.000369
+    total_fluxes = run_on_simulations("m2s10g2b44.614955r0.000595", 0.02/4, 0.0, 0.0,
+                                      gamma_min, anisotropic_s, particles_heating_model, constrain_type, max_frac_cold,
+                                      1.00, 0.015, 0.03, 1e-6);
     for(auto total_flux: total_fluxes){
         std::cout << "Total flux [Jy] = " << total_flux << "\n";
     }
 
+
+
+
+
+
 //    check_psi_interpolations_Lena("m1s10g2b123.971372r0.000369");
+//    check_psi_interpolations_Lena("m1s200g2b881.675162r0.000312");
 //    check_psi_interpolations_Lena("m2s10g2b44.614955r0.000595");
 //    check_psi_interpolations("eta");
     return 0;

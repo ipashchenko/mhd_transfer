@@ -277,8 +277,13 @@ class JetImage(ABC):
             fig.savefig(outfile, dpi=300, bbox_inches="tight")
         return fig
 
-    def plot(self, outfile=None, aspect="equal", Nan2zero=True, log=True, axis_units="mas", zoom_fr=1.0, cmap="magma",
-             figsize=None, cblabel="Intensity, Jy/pix", scale_by_pixsize=True, beta_app_max=None, beta_app_min=None):
+    def plot(self, save_picture_file_name=None, save_dir=None, aspect="equal", Nan2zero=True, log=True, axis_units="mas", zoom_fr=1.0, cmap="magma",
+             figsize=None, cblabel="Intensity, Jy/pix", scale_by_pixsize=True, beta_app_max=None, beta_app_min=None,
+             plot_polarization=False, model_txt_files_dict=None):
+
+        if save_dir is None:
+            save_dir = os.getcwd()
+
         # Factor that accounts non-uniform pixel size in plotting
         assert axis_units in ("pc", "mas")
         factor = (self.pixsize_array/np.min(self.pixsize_array))**2
@@ -336,8 +341,67 @@ class JetImage(ABC):
         # Intensity is in Jy per minimal pixel
         cb.set_label(cblabel)
 
-        if outfile:
-            fig.savefig(outfile, dpi=600, bbox_inches="tight")
+        if save_picture_file_name:
+            fig.savefig(os.path.join(save_dir, "I_" + save_picture_file_name), dpi=600, bbox_inches="tight")
+
+
+        if plot_polarization:
+            image_i = image.T
+            if model_txt_files_dict is None:
+                raise Exception("Provide model_txt_files_dict for loading Stokes Q, U, V!")
+            jm.load_image_stokes("Q", model_txt_files_dict["Q"])
+            if scale_by_pixsize:
+                image = self.image()/factor.T
+            else:
+                image = self.image()
+            image_q = image
+
+            jm.load_image_stokes("U", model_txt_files_dict["U"])
+            if scale_by_pixsize:
+                image = self.image()/factor.T
+            else:
+                image = self.image()
+            image_u = image
+
+            image_p = np.hypot(image_q, image_u)
+            image_chi = 0.5*np.arctan2(image_u, image_q)
+
+
+            fig, axes = plt.subplots(1, 1, figsize=figsize)
+            cmap = plt.get_cmap(cmap)
+            if log:
+                # norm = LogNorm(vmin=min_positive, vmax=image.max())
+                norm = LogNorm(vmin=first_contour, vmax=0.33*image.max())
+            else:
+                norm = None
+
+            # Here X and Y are 2D arrays of bounds, so ``image`` should be the value
+            # *inside* those bounds. Therefore, we should remove the last value from
+            # the ``image`` array. Currently we are not doing it.
+            image = image[:, :index_to_show]
+            if axis_units == "mas":
+                x = self.r_ob_mas[:index_to_show, :].value
+                y = self.d_mas[:index_to_show, :].value
+                axes.set_ylabel("DEC, mas")
+                axes.set_xlabel("RA, mas")
+            else:
+                x = self.r_ob[:index_to_show, :]
+                y = self.d[:index_to_show, :]
+                axes.set_ylabel(r"$d$, pc")
+                axes.set_xlabel(r"$r_{\rm ob}$, pc")
+
+            im = axes.pcolormesh(x, y, image_p.T, norm=norm, cmap=cmap, shading="gouraud", vmin=beta_app_min, vmax=beta_app_max)
+            axes.set_aspect(aspect)
+
+            # Make a colorbar with label and units
+            divider = make_axes_locatable(axes)
+            cax = divider.append_axes("right", size="10%", pad=0.00)
+            cb = fig.colorbar(im, cax=cax)
+            # Intensity is in Jy per minimal pixel
+            cb.set_label("Pol. Intensity, Jy/pix")
+
+            fig.savefig(os.path.join(save_dir, "P_" + save_picture_file_name), dpi=600, bbox_inches="tight")
+
         return fig
 
     def plot_alpha(self, nlevels=25, zoom_fr=1.0, outfile=None, frac_min=0.0001, axis_units="mas", figsize=None,
@@ -490,11 +554,12 @@ def plot_interpolated(mhd_code):
     plt.matshow(np.log10(jsq_m*boost)[::,:125].T[::-1, ::], cmap="hsv", aspect="auto");plt.colorbar();plt.show()
 
 
-def plot_psi_interpolated(mhd_code, extent=(0, 10, 0, 1), txt_dir='/home/ilya/github/mhd_transfer/Release'):
+def plot_psi_interpolated(mhd_code, extent=(0, 5, 0, 0.25), txt_dir='/home/ilya/github/mhd_transfer/Release',
+                          across_fraction=0.5):
     from mpl_toolkits.axes_grid1 import make_axes_locatable
     from matplotlib import colors
 
-    def plot_single(value, extent, label, savename, aroundzero=False, vmin=None, vmax=None):
+    def plot_single(value, extent, label, savename, aroundzero=False, vmin=None, vmax=None, show=False):
         fig, axes = plt.subplots(1, 1)
 
         if aroundzero:
@@ -517,66 +582,70 @@ def plot_psi_interpolated(mhd_code, extent=(0, 10, 0, 1), txt_dir='/home/ilya/gi
         cb = fig.colorbar(im, cax=cax)
         cb.set_label(label)
         fig.savefig(savename, bbox_inches="tight", dpi=300)
-        plt.show()
+        if show:
+            plt.show()
 
     Psi = np.loadtxt(os.path.join(txt_dir, "{}_Psi_psi_interpolated.txt".format(mhd_code)))
+    shape = Psi.shape
+    across = int(across_fraction*shape[1])
     Psi_m = np.ma.array(Psi, mask = Psi == 1)
-    plot_single(Psi_m, extent=extent, label=r"$\Psi$", savename="psi_psi_interpolation.png")
+    plot_single(Psi_m[:, :across], extent=extent, label=r"$\Psi$", savename="{}_psi_psi_interpolation.png".format(mhd_code))
 
     sigma = np.loadtxt(os.path.join(txt_dir, "{}_sigma_psi_interpolated.txt".format(mhd_code)))
     sigma_m = np.ma.array(sigma, mask = Psi == 1)
-    plot_single(sigma_m, extent=extent, label=r"$\sigma$", savename="sigma_psi_interpolation.png")
+    plot_single(sigma_m[:, :across], extent=extent, label=r"$\sigma$", savename="{}_sigma_psi_interpolation.png".format(mhd_code))
 
     angle = np.loadtxt(os.path.join(txt_dir, "{}_angle_interpolated.txt".format(mhd_code)))
     angle_m = np.ma.array(angle, mask = Psi == 1)
-    plot_single(np.rad2deg(angle_m), extent=extent, label=r"$\theta_{\rm pol}$, degree", vmax=15, savename="poloidal_angle_from_Psi_gradient.png")
+    plot_single(np.rad2deg(angle_m[:, :across]), extent=extent, label=r"$\theta_{\rm pol}$, degree", vmax=8, savename="{}_poloidal_angle_interpolated.png".format(mhd_code))
 
-    theta = np.loadtxt(os.path.join(txt_dir, "{}_theta_psi_interpolated.txt".format(mhd_code)))
-    theta_m = np.ma.array(theta, mask = Psi == 1)
-    plot_single(np.rad2deg(theta_m), extent=extent, label=r"$\theta_{\rm pol}$, degree", vmax=15, savename="poloidal_angle_interpolation.png")
+    # theta = np.loadtxt(os.path.join(txt_dir, "{}_theta_psi_interpolated.txt".format(mhd_code)))
+    # theta_m = np.ma.array(theta, mask = Psi == 1)
+    # plot_single(np.rad2deg(theta_m), extent=extent, label=r"$\theta_{\rm pol}$, degree", vmax=15, savename="{}_poloidal_angle_interpolation.png".format(mhd_code))
 
     jsq_phi = np.loadtxt(os.path.join(txt_dir, "{}_jsq_phi_psi_interpolated.txt".format(mhd_code)))
     jsq_phi_m = np.ma.array(jsq_phi, mask=jsq_phi == 0)
-    plot_single(np.log10(jsq_phi_m), extent=extent, label=r"$\lg{j_{\phi}}^2$, rel.units", savename="jsq_phi_psi_interpolation.png")
+    plot_single(np.log10(jsq_phi_m[:, :across]), extent=extent, label=r"$\lg{j_{\phi}}^2$, rel.units", savename="{}_jsq_phi_psi_interpolation.png".format(mhd_code))
 
     jsq = np.loadtxt(os.path.join(txt_dir, "{}_jsq_psi_interpolated.txt".format(mhd_code)))
     jsq_m = np.ma.array(jsq, mask=jsq == 0)
-    plot_single(np.log10(jsq_m), extent=extent, label=r"$\lg{j_{\rm plasma}}^2$, rel.units", savename="jsq_psi_interpolation.png")
+    plot_single(np.log10(jsq_m[:, :across]), extent=extent, label=r"$\lg{j_{\rm plasma}}^2$, rel.units", savename="{}_jsq_psi_interpolation.png".format(mhd_code))
 
     bphi = np.loadtxt(os.path.join(txt_dir, "{}_beta_phi_psi_interpolated.txt".format(mhd_code)))
     bphi_m = np.ma.array(bphi, mask=Psi == 1)
-    # FIXME: n Lena's data beta_phi is nonnegative...
-    # plot_single(bphi_m, extent=extent, label=r"$\beta_{\phi}$, c", savename="beta_phi_psi_interpolation.png", aroundzero=False)
-    plot_single(bphi_m, extent=extent, label=r"$\beta_{\phi}$, c", savename="beta_phi_psi_interpolation.png",
-                aroundzero=True, vmin=-0.1, vmax=0.1)
+    # FIXME: in Lena's data beta_phi is nonnegative...
+    plot_single(bphi_m[:, :across], extent=extent, label=r"$\beta_{\phi}$, c", savename="{}_beta_phi_psi_interpolation.png".format(mhd_code), aroundzero=False)
+    # plot_single(bphi_m, extent=extent, label=r"$\beta_{\phi}$, c", savename="beta_phi_psi_interpolation.png",
+    #             aroundzero=True, vmin=-0.1, vmax=0.1)
 
     Gamma = np.loadtxt(os.path.join(txt_dir, "{}_Gamma_psi_interpolated.txt".format(mhd_code)))
     Gamma_m = np.ma.array(Gamma, mask = Gamma == 1)
-    plot_single(Gamma_m, extent=extent, label=r"$\Gamma$", savename="Gamma_psi_interpolation.png")
+    plot_single(Gamma_m[:, :across], extent=extent, label=r"$\Gamma$", savename="{}_Gamma_psi_interpolation.png".format(mhd_code))
 
     N = np.loadtxt(os.path.join(txt_dir, "{}_N_psi_interpolated.txt".format(mhd_code)))
     N_m = np.ma.array(N, mask = N == 0)
-    plot_single(np.log10(N_m), extent=extent, label=r"$\lg{N_{\rm plasma}}$, cm$^{-3}$", savename="N_plasma_psi_interpolation.png")
+    plot_single(np.log10(N_m[:, :across]), extent=extent, label=r"$\lg{N_{\rm plasma}}$, cm$^{-3}$", savename="{}_N_plasma_psi_interpolation.png".format(mhd_code))
 
     # FIXME: Lena's B_phi is negative
     B_phi = np.loadtxt(os.path.join(txt_dir, "{}_B_phi_psi_interpolated.txt".format(mhd_code)))
     B_phi_m = np.ma.array(B_phi, mask = Psi == 1)
-    plot_single(np.log10(abs(B_phi_m)), extent=extent, label=r"$\lg{B_{\phi}}$, G", savename="B_phi_psi_interpolation.png")
+    plot_single(np.log10(abs(B_phi_m[:, :across])), extent=extent, label=r"$\lg{B_{\phi}}$, G", savename="{}_B_phi_psi_interpolation.png".format(mhd_code))
 
     B_p = np.loadtxt(os.path.join(txt_dir, "{}_B_p_psi_interpolated.txt".format(mhd_code)))
     B_p_m = np.ma.array(B_p, mask = B_p == 0)
-    plot_single(np.log10(B_p_m), extent=extent, label=r"$\lg{B_{\rm p}}$, G", savename="B_p_psi_interpolation.png")
+    plot_single(np.log10(B_p_m[:, :across]), extent=extent, label=r"$\lg{B_{\rm p}}$, G", savename="{}_B_p_psi_interpolation.png".format(mhd_code))
 
     B_tot = np.hypot(B_p_m, B_phi_m/Gamma_m)
-    plot_single(np.log10(B_tot), extent=extent, label=r"$\lg{B_{\rm tot,plasma}}$, G", savename="B_tot_plasma_psi_interpolation.png")
+    plot_single(np.log10(B_tot[:, :across]), extent=extent, label=r"$\lg{B_{\rm tot,plasma}}$, G", savename="{}_B_tot_plasma_psi_interpolation.png".format(mhd_code))
 
 
     # plt.matshow(np.log((B_tot**2)[::,:125].T[::-1, ::]), cmap="hsv", aspect="auto");plt.colorbar();plt.show()
 
-    # beta = np.sqrt(Gamma_m**2-1)/Gamma_m
-    # D = 1/(Gamma_m*(1-beta*np.cos(np.deg2rad(17))))
-    # boost = D**2.5
+    beta = np.sqrt(Gamma_m**2-1)/Gamma_m
+    D = 1/(Gamma_m*(1-beta*np.cos(np.deg2rad(17.) + angle_m)))
+    boost = D**2.5
     # plt.matshow(boost[::,:125].T[::-1, ::], cmap="hsv", aspect="auto");plt.colorbar();plt.show()
+    plot_single(boost[:, :across], extent=extent, label=r"Boosting factor", savename="{}_boost_psi_interpolation.png".format(mhd_code))
 
     # n_plasma
     # plt.matshow(np.log10(N_m*boost/Gamma_m)[::,:125].T[::-1, ::], cmap="hsv", aspect="auto");plt.colorbar();plt.show()
@@ -665,11 +734,31 @@ def plot_raw(txt, label, extent, savename=None):
 
 if __name__ == "__main__":
 
+    # z = 0.00436
+    # freq_ghz = 15.4
+    # number_of_pixels_along = 400
+    # number_of_pixels_across = 100
+    # pixel_size_mas_start = 0.05
+    # pixel_size_mas_stop = 0.05
+    # txt_dir = "/home/ilya/github/mhd_transfer/cmake-build-debug"
+    # save_dir = "/home/ilya/data/Lena/RSF2022"
+    #
+    # model_stokes_dict = {"Q": os.path.join(txt_dir, "m1s200g2b881.675162r0.000312_n_none_jet_image_q_15.4.txt"),
+    #                      "U": os.path.join(txt_dir, "m1s200g2b881.675162r0.000312_n_none_jet_image_u_15.4.txt")}
+    #
+    # jm = JetImage(z,
+    #               number_of_pixels_along, number_of_pixels_across,
+    #               np.log10(pixel_size_mas_start), np.log10(pixel_size_mas_stop))
+    # jm.load_image_stokes("I", os.path.join(txt_dir, "m1s200g2b881.675162r0.000312_n_none_jet_image_i_15.4.txt"))
+    # jm.plot(save_picture_file_name="test.png", save_dir=save_dir, figsize=(10, 5), plot_polarization=True,
+    #         model_txt_files_dict=model_stokes_dict)
+
+
     # This applies to my local work in CLion. Change it to ``Release`` (or whatever) if necessary.
-    jetpol_run_directory = "Release"
-    n_along = 1000
+    jetpol_run_directory = "/home/ilya/github/mhd_transfer/cmake-build-debug"
+    n_along = 400
     n_across = 100
-    lg_pixel_size_mas_min = np.log10(0.025)
+    lg_pixel_size_mas_min = np.log10(0.05)
     # lg_pixel_size_mas_min = np.log10(0.003)
     # lg_pixel_size_mas_max = np.log10(0.1)
     lg_pixel_size_mas_max = np.log10(0.05)
@@ -678,35 +767,35 @@ if __name__ == "__main__":
     # mhd_code = "best"
     # mhd_code = "m2s10g2b44.614955r0.000595"
     # mhd_code = "m1s10g2b123.971372r0.000369"
-    mhd_code = "m1s10g2b123.971372r0.000369_psi_1.000000_dpsi_0.015000"
+    mhd_code = "m1s200g2b881.675162r0.000312_n_none"
     # mhd_code = "m1s10g2b123.971372r0.000369_psi_0.750000_dpsi_0.015000"
-    rt_code = "n1"
+    rt_code = "n"
 
     plot_images(mhd_code=mhd_code, rt_code=rt_code, freq_ghz_high=freq_ghz_high, freq_ghz_low=freq_ghz_low,
-                n_along=n_along, n_across=n_across,
+                n_along=n_along, n_across=n_across, save_dir="/home/ilya/data/Lena/RSF2022",
                 lg_pixel_size_mas_min=lg_pixel_size_mas_min, lg_pixel_size_mas_max=lg_pixel_size_mas_max,
-                cmap="jet", plot_beta_app=True)
+                cmap="jet", plot_beta_app=False, txt_files_dir=jetpol_run_directory)
 
     import sys; sys.exit(0)
 
 
-    # Test case - just plotting picture
-    # stokes = ("I", "Q", "U", "V")
-    stokes = ("I",)
-    # FIXME: Substitute with values used in radiative transfer
-    cjms = [JetImage(z=0.00436, n_along=200, n_across=50, lg_pixel_size_mas_min=np.log10(0.05),
-                     lg_pixel_size_mas_max=np.log10(0.05), jet_side=False) for _ in stokes]
-    for i, stk in enumerate(stokes):
-        cjms[i].load_image_stokes(stk, "{}/cjet_image_{}.txt".format(jetpol_run_directory, stk.lower()))
-
-    jms = [JetImage(z=0.00436, n_along=200, n_across=50, lg_pixel_size_mas_min=np.log10(0.05),
-                    lg_pixel_size_mas_max=np.log10(0.05), jet_side=True) for _ in stokes]
-    for i, stk in enumerate(stokes):
-        jms[i].load_image_stokes(stk, "{}/jet_image_{}.txt".format(jetpol_run_directory, stk.lower()))
-
-    j = TwinJetImage(jms[0], cjms[0])
-    j.plot_contours(zoom_fr=0.2, nlevels=20, aspect="auto")
-    plt.show()
+    # # Test case - just plotting picture
+    # # stokes = ("I", "Q", "U", "V")
+    # stokes = ("I",)
+    # # FIXME: Substitute with values used in radiative transfer
+    # cjms = [JetImage(z=0.00436, n_along=200, n_across=50, lg_pixel_size_mas_min=np.log10(0.05),
+    #                  lg_pixel_size_mas_max=np.log10(0.05), jet_side=False) for _ in stokes]
+    # for i, stk in enumerate(stokes):
+    #     cjms[i].load_image_stokes(stk, "{}/cjet_image_{}.txt".format(jetpol_run_directory, stk.lower()))
+    #
+    # jms = [JetImage(z=0.00436, n_along=200, n_across=50, lg_pixel_size_mas_min=np.log10(0.05),
+    #                 lg_pixel_size_mas_max=np.log10(0.05), jet_side=True) for _ in stokes]
+    # for i, stk in enumerate(stokes):
+    #     jms[i].load_image_stokes(stk, "{}/jet_image_{}.txt".format(jetpol_run_directory, stk.lower()))
+    #
+    # j = TwinJetImage(jms[0], cjms[0])
+    # j.plot_contours(zoom_fr=0.2, nlevels=20, aspect="auto")
+    # plt.show()
 
     # # Test case - convolving model image with beam (for comparing with CLEAN maps)
     # stokes = ("I", "Q", "U")

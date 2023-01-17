@@ -22,9 +22,9 @@ void Observation::run(int n, double tau_max, double dt_max, double tau_min, doub
     auto image_size = getImageSize();
 	vector<Pixel>& pixels = imagePlane->getPixels();
 	vector<Ray>& rays = imagePlane->getRays();
-	omp_set_num_threads(1);
+	omp_set_num_threads(4);
 	// Comment out for easy debug printing
-//	#pragma omp parallel for schedule(dynamic) collapse(2) default(none) shared(image_size, rays, pixels, tau_min, tau_max, n, dt_max, nu, polarization)
+//	#pragma omp parallel for schedule(dynamic) collapse(2) default(none) shared(image_size, rays, pixels, tau_min, tau_max, n, dt_max, nu, polarization, relerr)
     for (unsigned long int j = 0; j < image_size.first; ++j) {
 	    // TODO: If one (doesn't?) need counter-jet side -- start from uncommenting this line:D
 	    // TODO: I thik cj is now handled differently!
@@ -241,7 +241,7 @@ void Observation::integrate_full_stokes_adaptive(std::list<Intersection> &list_i
         std::vector<double> iquv = background;
 		// One can add observer function at the end of the argument list.
 		// TODO: Previously it was 1E-16, 1E-16
-		int num_steps = integrate_adaptive(make_controlled(1E-10, relerr, dt_max, stepper_type()),
+		int num_steps = integrate_adaptive(make_controlled(1E-30, relerr, dt_max, stepper_type()),
 		                   full_stokes, iquv, 0.0, length, dt);
 		background = iquv;
 	}

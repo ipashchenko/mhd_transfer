@@ -197,6 +197,25 @@ def create_files_for_transfer_Lena(run_name, files_dir, save_dir, slow_down_cent
     result_z_pc = np.array(result_z_pc)
     result_r_pc = np.array(result_r_pc)
 
+    # First clean old files
+    for fn in (os.path.join(save_dir, "{}_Gamma_field_psi.txt".format(run_name)),
+               os.path.join(save_dir, "{}_n_plasma_field_psi.txt".format(run_name)),
+               os.path.join(save_dir, "{}_B_p_field_psi.txt".format(run_name)),
+               os.path.join(save_dir, "{}_Psi_field.txt".format(run_name)),
+               os.path.join(save_dir, "{}_Psi_field_psi.txt".format(run_name)),
+               os.path.join(save_dir, "{}_B_phi_field_psi.txt".format(run_name)),
+               os.path.join(save_dir, "{}_Bsq_plasma_field_psi.txt".format(run_name)),
+               os.path.join(save_dir, "{}_sigma_field_psi.txt".format(run_name)),
+               os.path.join(save_dir, "{}_theta_field_psi.txt".format(run_name)),
+               os.path.join(save_dir, "{}_beta_phi_field_psi.txt".format(run_name)),
+               os.path.join(save_dir, "{}_jsq_plasma_field_psi.txt".format(run_name)),
+               os.path.join(save_dir, "{}_jsq_z_plasma_field_psi.txt".format(run_name)),
+               os.path.join(save_dir, "{}_jsq_phi_plasma_field_psi.txt".format(run_name))):
+        try:
+            os.unlink(fn)
+        except:
+            print("No old file ", fn)
+
     np.savetxt(os.path.join(save_dir, "{}_Gamma_field_psi.txt".format(run_name)), np.dstack((result_z_pc, result_Psi, result_Gamma))[0])
     np.savetxt(os.path.join(save_dir, "{}_n_plasma_field_psi.txt".format(run_name)), np.dstack((result_z_pc, result_Psi, result_n_plasma))[0])
     np.savetxt(os.path.join(save_dir, "{}_B_p_field_psi.txt".format(run_name)), np.dstack((result_z_pc, result_Psi, result_Bp))[0])
@@ -283,12 +302,21 @@ def create_files_for_transfer_Lena(run_name, files_dir, save_dir, slow_down_cent
 
 
 if __name__ == "__main__":
-    # files_dir = "/home/ilya/github/mhd_solver/Release"
-    files_dir = "/home/ilya/data/Lena/Ilya_theta"
+    # M1 - Beskin+2017
+    # m1s10g2b123.971372r0.000369
+    # files_dir = "/home/ilya/data/Lena/Ilya_theta"
+    # m1s10g2b123.971372r0.000369
+    # m1s200g2b881.675162r0.000312
+    files_dir = "/home/ilya/data/Lena/RSF2022/m1s200g2"
+    # M2
+    # m2s10g2b44.614955r0.000595
+    # files_dir = "/home/ilya/data/Lena/RSF2022/m2s10g2"
     save_dir = "/home/ilya/github/mhd_transfer/Release"
-    # save_dir = "/home/ilya/github/mhd_transfer/cmake-build-debug"
     if len(sys.argv) != 2:
         raise Exception("Provide MHD code as a single argument")
     run_name = sys.argv[1]
     # create_files_for_transfer(run_name, files_dir, save_dir)
-    create_files_for_transfer_Lena(run_name, files_dir, save_dir=files_dir, slow_down_center=True, gamma_in_original=2.5)
+    print("Creting files for code : ", run_name)
+    print("Getting slices from : ", files_dir)
+    print("Saving to dir : ", save_dir)
+    create_files_for_transfer_Lena(run_name, files_dir, save_dir=save_dir, slow_down_center=False, gamma_in_original=2.0)

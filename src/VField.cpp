@@ -42,6 +42,7 @@ Vector3d SimulationVField::vf(const Vector3d &point, double psi) const {
 //    double cosz = gradPsi[1];
 
     double polangle = interp_polangle_.interpolated_value({psi, z/pc});
+//    double polangle = 0.*M_PI/180.;
     double sinz = sin(polangle);
     double cosz = cos(polangle);
 

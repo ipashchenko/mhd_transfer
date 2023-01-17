@@ -33,7 +33,10 @@ double nu_b_value(Vector3d &b) {
 }
 
 double k_0(Vector3d &b, Vector3d &n_los, double nu, double n_nt, double s, double gamma_min) {
-    double n = n_nt*(s-1)*pow(gamma_min, s-1);
+	double sin_theta = (n_los.cross(b.normalized())).norm();
+	// FIXME:
+//	double n = n_nt*(s-1)*pow(gamma_min, s-1) * pow(sin_theta, 8.0);
+	double n = n_nt*(s-1)*pow(gamma_min, s-1);
     return pi*nu_p(n)*nu_p(n)*nu_b(b, n_los)/(c*nu*nu);
 }
 
@@ -48,7 +51,10 @@ double k_0_value(Vector3d &b, double nu, double n_nt, double s, double gamma_min
 }
 
 double eta_0(Vector3d &b, Vector3d &n_los, double n_nt, double s, double gamma_min) {
-    double n = n_nt*(s-1)*pow(gamma_min, s-1);
+	double sin_theta = (n_los.cross(b.normalized())).norm();
+	// FIXME:
+//	double n = n_nt*(s-1)*pow(gamma_min, s-1) * pow(sin_theta, 8.0);
+	double n = n_nt*(s-1)*pow(gamma_min, s-1);
     return pi*nu_p(n)*nu_p(n)*nu_b(b, n_los)*m_e/c;
 }
 
@@ -191,4 +197,8 @@ void read_from_txt(const std::string& fntxt, std::vector< std::vector<double> >&
 double generalized1_gaussian1d(double x, double loc, double scale, double shape) {
 //    return shape/(2*scale*tgamma(1/shape))*exp(-pow(abs(x-loc)/scale, shape));
     return exp(-pow(abs(x-loc)/scale, shape));
+}
+
+double logistic(double x, double L, double k, double x0) {
+	return L/(1 + exp(-k*(x-x0)));
 }

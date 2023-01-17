@@ -54,11 +54,15 @@ double SimulationInterpolater::interpolated_value(Vector2d point) const {
 //        std::cout << "Value:\t" << fh->vertex(i)->info() << std::endl;
     }
 
-    // Create an std::vector to store coordinates.
+    // Create std::vector to store coordinates.
     Scalar_vector coordinates;
+    // No such class since CGAL 5.4
     // Instantiate class Triangle_coordinates_2 for the triangle defined above.
-    Triangle_coordinates triangle_coordinates(vertexes[0], vertexes[1], vertexes[2]);
-    triangle_coordinates(pt, std::inserter(coordinates, coordinates.end()));
+//    Triangle_coordinates triangle_coordinates(vertexes[0], vertexes[1], vertexes[2]);
+//    triangle_coordinates(pt, std::inserter(coordinates, coordinates.end()));
+
+    CGAL::Barycentric_coordinates::triangle_coordinates_2(vertexes[0], vertexes[1], vertexes[2], pt, std::inserter(coordinates, coordinates.end()));
+
 
     double interpolated_value = 0;
     for(int j = 0; j < 3; ++j) {

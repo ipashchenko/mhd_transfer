@@ -54,7 +54,7 @@ double NField::k_C_c(Vector3d &b, Vector3d &n_los, double nu, double n) const {
 }
 
 
-PowerLawNField::PowerLawNField(bool in_plasma_frame, double s, double gamma_min, Geometry* geometry,
+PowerLawNField:: PowerLawNField(bool in_plasma_frame, double s, double gamma_min, Geometry* geometry,
                                std::string plasma, bool changing_s, double ds) :
         NField(in_plasma_frame, geometry), s_(s), gamma_min_(gamma_min), plasma_(plasma), changing_s_(changing_s), ds_(ds) {
     if(plasma_ == "normal"){
@@ -504,7 +504,7 @@ double ConstrainedBetaSimulationNField::_nf(const Vector3d &point, double psi) c
 
     // Number of non-thermal particles can't be larger than some fraction (``max_frac_cold_``) of all cold particles
     if(n_nt + n_nt_border > n_cold_max) {
-        std::cout << "Number of NT particles can't be larger than number of cold particles!" << std::endl;
+//        std::cout << "Number of NT particles can't be larger than number of cold particles!" << std::endl;
         return n_cold_max;
     }else {
         return n_nt + n_nt_border;
